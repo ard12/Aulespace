@@ -1,0 +1,9 @@
+scenario,given_window,status,found_at,loc_error_px,score,plateau_px,plan_status,n_steps,goal,reason
+marker fully visible,"(np.int64(75), np.int64(76), 220, 200)",ok,"(75, 76)",0.0,1.0,"(3, 3)",already_visible,0,full_disk,"unique, sharply-peaked match"
+marker partially visible,"(np.int64(195), np.int64(136), 200, 180)",ok,"(195, 136)",0.0,1.0,"(3, 3)",ok,11,full_disk,"unique, sharply-peaked match"
+marker is up-left,"(400, 380, 200, 170)",ok,"(400, 380)",0.0,1.0,"(1, 1)",ok,65,full_disk,"unique, sharply-peaked match"
+marker is left,"(400, 150, 190, 180)",ambiguous,,,1.0,"(1, 137)",ambiguous,0,,score plateau spans 1x137 px (limit 48x45); the crop slides along at l
+marker is above,"(120, 380, 200, 160)",ambiguous,,,1.0,"(183, 1)",ambiguous,0,,score plateau spans 183x1 px (limit 50x40); the crop slides along at l
+marker is up-right,"(30, 400, 190, 150)",ok,"(30, 400)",0.0,1.0,"(1, 1)",ok,42,full_disk,"unique, sharply-peaked match"
+edge-only strip (aperture),"(200, 20, 120, 16)",ambiguous,,,1.0,"(427, 1)",ambiguous,0,,score plateau spans 427x1 px (limit 30x4); the crop slides along at le
+uniform page patch,"(4, 4, 18, 18)",featureless,,,,"(0, 0)",featureless,0,,crop grey-level std 0.00 < 3.00: no structure to match

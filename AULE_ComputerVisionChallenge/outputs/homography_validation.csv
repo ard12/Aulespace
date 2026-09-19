@@ -1,0 +1,14 @@
+check,measured,expected,pass
+|| C || == 100 cm,100.0,100.000000,True
+det R == 1,1.0,1.000000,True
+optical axis through the port centre,0.0,0,True
+port centre lands on the principal point,5.553092023546925e-06,0,True
+R(0) == I,0.0,0,True
+analytic H (PLUS) == composed H,1.5526223984932062e-14,0,True
+projected quad is convex,1.0,1 (True),True
+"near/far ratio, closed form",1.1657601018944683,1.165760,True
+"near/far ratio, from projection",1.1657601018944692,= closed form,True
+"near/far ratio, from RENDERED IMAGE",1.1662136445302769,~ closed form,True
+intrinsics invariance residual (px),6.431098710768743e-13,0,True
+|| H_B(0) - I ||_F,1.1102230246251565e-16,0,True
+Model A theta=0 is a perfect square (max/min side),1.00000004161488,1.000000,True

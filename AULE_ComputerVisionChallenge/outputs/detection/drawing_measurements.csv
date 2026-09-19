@@ -1,0 +1,4 @@
+region,w_px,h_px,aspect_w_over_h,side_vs_outer_measured,side_cm_from_text,side_vs_outer_from_text
+outer,549,517,1.0619,1.0,40.0,1.0
+middle,385,322,1.1957,0.7013,35.0,0.875
+inner,148,164,0.9024,0.2696,30.0,0.75

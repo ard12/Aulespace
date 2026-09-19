@@ -1,0 +1,31 @@
+# AULE Computer Vision Challenge
+#
+# Developed and executed on Python 3.14 with the versions noted below; the
+# lower bounds are what the code actually needs, and everything used here is
+# available on Python 3.10-3.12, which is what Google Colab runs.
+#
+# In Colab, numpy / opencv / scipy / matplotlib / pandas / imageio are already
+# installed, so nothing normally has to be pip-installed to run the notebooks.
+
+numpy>=1.23            # executed with 2.4.3
+opencv-python>=4.6     # executed with 4.13.0  (see note below)
+scipy>=1.9
+matplotlib>=3.6
+pandas>=1.5
+imageio>=2.25          # GIF writing for Part D
+
+# Extraction of the reference raster from the assignment PDF (notebook 00).
+# Only needed to regenerate assets/reference.png; the asset is committed.
+pymupdf>=1.23
+
+# Notebook execution and the test suite.
+jupyter>=1.0
+nbformat>=5.7
+nbconvert>=7.0
+ipykernel>=6.20
+pytest>=7.2
+
+# Note on OpenCV:
+#   On a headless machine (CI, a container) install `opencv-python-headless`
+#   instead of `opencv-python` -- the code never calls cv2.imshow or any other
+#   GUI function, so the headless build is a drop-in replacement.

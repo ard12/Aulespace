@@ -1,0 +1,2 @@
+image_w,image_h,outer_side_px,outer_w_px,outer_h_px,border_thickness_px,centre_x,centre_y,marker_x,marker_y,marker_radius_px,marker_circularity,marker_axis_ratio,marker_polar_deg,edge_angle_mod90_deg,long_edge_mod180_deg,confidence
+604,558,534.0,550.0,518.0,6.0,306.0,283.0,185.0155,176.4995,54.2234,0.8337,0.9691,-138.6431,0.0,0.0,0.9385
