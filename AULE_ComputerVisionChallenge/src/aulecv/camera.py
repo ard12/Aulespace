@@ -373,12 +373,25 @@ def homography_for_camera_pose(theta_deg: float,
 # ---------------------------------------------------------------------------
 
 def project_points(H: np.ndarray, pts: Sequence[Sequence[float]]) -> np.ndarray:
-    """Apply a 3x3 homography to an (N,2) array of points."""
+    """Apply a homography, rejecting points on its projective horizon.
+
+    Multiplying H by any finite nonzero scale must leave the answer unchanged.
+    A zero denominator describes a point at infinity, not a very distant pixel.
+    """
+    matrix = np.asarray(H, float).reshape(3, 3)
     p = np.asarray(pts, float).reshape(-1, 2)
+    if not np.isfinite(matrix).all() or not np.isfinite(p).all():
+        raise ValueError("homography and points must be finite")
+    scale = float(np.max(np.abs(matrix)))
+    if scale == 0:
+        raise ValueError("homography must be nonzero")
+    matrix = matrix / scale
     ph = np.hstack([p, np.ones((len(p), 1))])
-    q = (np.asarray(H, float) @ ph.T).T
+    q = (matrix @ ph.T).T
     w = q[:, 2:3]
-    w = np.where(np.abs(w) < 1e-12, 1e-12, w)
+    bound = np.abs(ph) @ np.abs(matrix[2])
+    if np.any(np.abs(w[:, 0]) <= 8 * np.finfo(float).eps * bound):
+        raise ValueError("cannot project a point on the homography horizon")
     return q[:, :2] / w
 
 
@@ -556,20 +569,29 @@ def make_renderer(geom: PortGeometry,
     hi = pts.max(axis=0)
     span = float(max(hi[0] - lo[0], hi[1] - lo[1]))
     m = margin_frac * span
-    W = int(np.ceil(hi[0] - lo[0] + 2 * m))
-    H = int(np.ceil(hi[1] - lo[1] + 2 * m))
 
     if model == "metric":
         # Fold the canvas placement into the principal point: K keeps square
         # pixels and the homography stays a single clean K [r1 r2 t] G product.
+        W = int(np.ceil(hi[0] - lo[0] + 2 * m))
+        H = int(np.ceil(hi[1] - lo[1] + 2 * m))
         K = estimate_camera_intrinsics(f, principal_point=(-lo[0] + m, -lo[1] + m))
         offset = np.eye(3)
     else:
         # K is pinned by the H_B(0) = I requirement, so the canvas placement is
-        # a separate pure translation applied afterwards.
+        # a separate pure translation applied afterwards.  That translation is
+        # rounded to whole pixels on purpose: a fractional shift would resample
+        # every frame through the interpolator and destroy Model B's defining
+        # property, that theta = 0 returns the supplied raster *exactly*.  The
+        # canvas is then sized from the shifted bounding box so rounding can
+        # never push content off the edge.
         K = K0
-        offset = np.array([[1.0, 0.0, -lo[0] + m],
-                           [0.0, 1.0, -lo[1] + m],
+        tx = float(np.ceil(m - lo[0]))
+        ty = float(np.ceil(m - lo[1]))
+        W = int(np.ceil(hi[0] + tx + m))
+        H = int(np.ceil(hi[1] + ty + m))
+        offset = np.array([[1.0, 0.0, tx],
+                           [0.0, 1.0, ty],
                            [0.0, 0.0, 1.0]], float)
 
     return ViewRenderer(geom=geom, model=model, K=K, canvas=(W, H), offset=offset,
@@ -609,8 +631,8 @@ def generate_return_sequence(theta0_deg: float = C.PART_C_ANGLE_DEG,
     """
     theta0 = float(theta0_deg)
     dt = abs(float(dtheta_deg))
-    if dt <= 0:
-        raise ValueError("dtheta_deg must be positive")
+    if not np.isfinite(theta0) or not np.isfinite(dt) or dt <= 0:
+        raise ValueError("theta0_deg must be finite and dtheta_deg finite and nonzero")
     n = int(np.ceil(abs(theta0) / dt))
     sgn = np.sign(theta0) if theta0 != 0 else 1.0
     seq = [theta0 - sgn * dt * k for k in range(n)]

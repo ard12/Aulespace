@@ -6,11 +6,11 @@ chord per step (cm),4.3629770069122245,4.363,True
 "chord midpoint radius, 22.5->0 (cm)",98.07852804032305,98.078,True
 no frame warped from its predecessor,True,True,True
 max PnP |theta error| on EXACT corners (deg),1.6796079314929102e-05,0 (the model is exact),True
-detector corner RMS error (px),0.3192613853078967,sub-pixel,True
+detector corner RMS error (px),0.3192613853079075,sub-pixel,True
 max PnP |theta error| where the target is feasible (deg),0.21547033833188856,< 0.5 (target),True
 max PnP |theta error| over ALL frames (deg),1.5466802881395711,"REPORTED: near-frontal is ill-conditioned, section 5",True
 "worst frame, in sigmas of its predicted uncertainty",1.53161957541209,< 3 (at the conditioning limit),True
 max PnP |distance error| (cm),0.11176225370236637,< 1.0 (target),True
 final frame == rectified reference,True,True,True
 round-trip PSNR (dB),48.64073792060792,> 20,True
-Model B theta=0 == raw reference,True,True,True
+Model B theta=0 delivered frame == raw reference,True,True,True

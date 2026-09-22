@@ -1,0 +1,3 @@
+motion_gain,status,steps,search_steps,goal,window
+1.0,visible,95,57,marker_centre,"(151, 145, 90, 90)"
+0.6,visible,155,107,marker_centre,"(178, 172, 90, 90)"

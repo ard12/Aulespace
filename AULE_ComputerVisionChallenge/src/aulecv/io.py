@@ -69,6 +69,15 @@ def save_image(path: str, img: np.ndarray) -> str:
 
 
 def to_gray(img: np.ndarray) -> np.ndarray:
+    img = np.asarray(img)
+    if img.size == 0 or img.ndim not in (2, 3):
+        raise ValueError("image must be a non-empty grayscale, BGR, or BGRA array")
+    if img.ndim == 3 and img.shape[2] not in (3, 4):
+        raise ValueError("colour image must have 3 (BGR) or 4 (BGRA) channels")
+    if img.dtype not in (np.uint8, np.uint16, np.float32):
+        raise ValueError("image dtype must be uint8, uint16, or float32")
+    if img.dtype == np.float32 and not np.isfinite(img).all():
+        raise ValueError("image pixels must be finite")
     if img.ndim == 2:
         return img
     if img.shape[2] == 4:

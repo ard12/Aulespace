@@ -16,7 +16,7 @@ is labelled as such and the measured value is printed next to it.
 
 ```bash
 pip install -r requirements.txt
-python -m pytest tests -q                 # 147 tests
+python -m pytest tests -q                 # full regression suite
 jupyter nbconvert --to notebook --execute --inplace notebooks/*.ipynb
 ```
 
@@ -33,6 +33,13 @@ nothing normally needs installing. On a headless machine use
 `opencv-python-headless` — the code never calls a GUI function.
 
 Read the notebooks in order; `00` builds the detector that the other four use.
+
+The committed reference image is sufficient to run everything. To repeat PDF
+extraction, place `Aule_ComputerVisionChallenge.pdf` in the project root or
+`assets/`, or set `AULECV_ASSIGNMENT_PDF` to its path. No personal download path
+is required. In Colab, the folder must be at
+`/content/drive/MyDrive/AULE_ComputerVisionChallenge` with `src/` and `assets/`
+intact; opening a notebook alone does not upload those dependencies.
 
 ---
 
@@ -118,8 +125,10 @@ present a 1-in-4 guess.
 **One movement convention, used everywhere:** a command is a **translation of the
 camera parallel to the port plane**, `RIGHT = +x_img`, `DOWN = +y_img`.
 
-That is not a convenience. Translating a pinhole by `t = (tx, ty, 0)` at depth
-`d` induces `H = K(I + t nᵀ/d)K⁻¹`, which notebook 02 evaluates numerically and
+Translating the camera centre by `delta_C = (tx, ty, 0)` at depth
+`d` induces `H = K(I - delta_C nᵀ/d)K⁻¹`. The relative extrinsic translation
+is `t_rel = -delta_C`, consistent with the PLUS form in Part C. Notebook 02
+evaluates this numerically and
 finds to be an **exact pure image translation** (linear part − I = 0.0, bottom row
 − [0 0 1] = 0.0). So "the field of view slides over the reference image" is
 physically correct for this motion. A pan/tilt would give `H = K R K⁻¹`, a real
@@ -129,27 +138,49 @@ projective warp — so **no pan/tilt angles are emitted**.
 matters is deciding whether the argmax means anything. Three tests, all scaled to
 the crop's own size: crop texture (`featureless`); the extent of the score
 plateau near the peak (the aperture problem); and a competing second peak after
-NMS. **A non-`ok` status produces no movement commands at all.**
+NMS. A further check rejects indistinguishable scores at distinct positions
+before suppression, including nearby alternatives that NMS would hide.
+**A non-`ok` status produces no deterministic movement commands at all.**
+A separate optional feedback search can request a relative move, receive the
+next camera frame, and try localisation again; it is never given the crop's
+hidden ground-truth position.
 
 **Measured over 300 seeded random crops:**
 
 | | |
 |---|---|
-| `ok` | 203 (67.7%) |
-| `ambiguous` | 89 (29.7%) |
+| `ok` | 201 (67.0%) |
+| `ambiguous` | 91 (30.3%) |
 | `featureless` | 8 (2.7%) |
-| localisation error among `ok` | max **2 px**, mean **0.0099 px**, exactly 0 px in **99.5%** |
-| within 1 px (target: within 1 px when `ok`) | **99.5%** |
-| plans that reached the goal | **203 / 203** |
+| localisation error among `ok` | max **0 px**, mean **0 px**, exactly 0 px in **100%** |
+| within 1 px (target: within 1 px when `ok`) | **100%** |
+| plans that reached the goal | **201 / 201** |
 | steps issued = optimal ⌈d/step⌉ | **true for every plan** |
 | crops with status ≠ `ok` that produced commands | **0** |
 
 Localisation stays exact up to additive noise of **σ = 30** grey levels.
 
 The step-by-step closed-loop exploration is a **clearly labelled optional
-section** (notebook 02 §7), not part of the answer. It also shows a case where
-exploring does *not* help — a 120×16 strip looks the same along every border, so
-no amount of translation makes it identifiable.
+section** (notebook 02, section 7), not part of the core answer. Its interface is
+`initial_crop + move_and_capture(dx, dy)`: the simulator owns the true window,
+while the search algorithm sees only returned pixels and relative commands. It
+is bounded and reports `exhausted` rather than pretending that exploration is a
+guarantee.
+
+`navigate_until_visible(initial_crop, reference, detection, move_and_capture)`
+executes the search and movement plan using fresh camera frames. It replans
+after each move and searches through ambiguous intermediate views until the
+marker is visible in a confidently localised crop. Search and navigation share
+one budget; exhaustion and stalls are explicit outcomes. Notebook 02 verifies
+arrival from an ambiguous start both with accurate movement and with only 60%
+of the commanded motion. This remains a simulation under the same-scale crop
+assumption; it is not a guarantee for arbitrary hardware or unobservable views.
+
+Movement planning also fails closed: a step size must be finite and positive,
+and a route requiring more than the 400-step safety cap returns
+`status='unreachable'` with **no partial command list**.
+An explicit `goal='full_disk'` is never reduced to a centre-only goal; a crop
+too small to contain it is unreachable. Only `goal='auto'` permits that fallback.
 
 ---
 
@@ -171,8 +202,14 @@ At θ = 0 this renders the **rectified** square port.
 
 **Model B (secondary, `model='image_faithful'`).** Takes the raster *as* the θ = 0
 camera image and warps it with the plane-induced homography using `fx = 2.5w`,
-`fy = 2.5h`. Then **‖H_B(0) − I‖ = 1.11e-16** and the θ = 0 output is byte-identical
-to the input raster. The price is that the implied object is not exactly square.
+`fy = 2.5h`. Then **‖H_B(0) − I‖ = 1.11e-16**, and the θ = 0 frame *as rendered and
+shipped* contains the input raster byte for byte (max pixel difference **0**).
+That second half is not automatic: the frames also carry a canvas translation,
+and a fractional one would put every Model B frame through the interpolator and
+leave the θ = 0 output merely *resembling* the raster. The Model B canvas offset
+is therefore rounded to whole pixels, and a test asserts the property on the
+delivered render path rather than on the homography alone. The price of the
+model is that the implied object is not exactly square.
 
 Both are rendered. At 22.5° their corners differ by **11.31 px after the best
 similarity fit — 2.06% of the port width**. If the raster's outer region were an
@@ -198,7 +235,7 @@ We were never told `f` or the principal point. Replacing `K` by `SK` with `S` a
 similarity replaces `H` by `SH`, so the output changes by a similarity only.
 Measured over `f` from 400 to 5000 px and principal points up to (1000, 1000):
 raw corner shifts up to **2495 px**, but the residual **after fitting a similarity
-is at most 6.43e-13 px**, and the near/far edge ratio is identical to **4.4e-16**.
+is at most 2.27e-13 px**, and the near/far edge ratio is identical to **4.4e-16**.
 The unknown intrinsics fix the output's scale and framing, never its perspective
 geometry.
 
@@ -216,7 +253,7 @@ geometry.
 | near/far ratio, **closed form** | **1.165760** | — |
 | near/far ratio, from the projection | 1.165760 | = closed form |
 | near/far ratio, **re-detected on the rendered pixels** | **1.166214** | ≈ closed form |
-| intrinsics-invariance residual | 6.43e-13 px | 0 |
+| intrinsics-invariance residual | 2.27e-13 px | 0 |
 | ‖H_B(0) − I‖ | 1.11e-16 | 0 |
 | Model A θ=0 max/min side | 1.000000 | 1 |
 
@@ -297,14 +334,16 @@ faithful beyond the outer quad.
   notebook as a consistency check, not independent evidence.
 * **Pixel round trip** (a real test): warping the 22.5° *frame* back to frontal
   through two bicubic resamplings gives **PSNR 48.64 dB**, max abs diff 17.
-* Model B's θ = 0 output is byte-identical to the raw reference.
+* Model B's θ = 0 frame reproduces the raw reference byte for byte (max abs
+  diff **0**), canvas translation included — see Part C for why that offset is
+  rounded to whole pixels.
 
 ---
 
 ## Testing
 
 ```
-147 passed
+188 passed
 ```
 
 `tests/` covers: lossless extraction and image identity; quad convexity, sub-pixel
@@ -313,11 +352,16 @@ canonical ordering following the port through rotation; detector robustness to
 rescaling, noise, JPEG and blur; the Part A sign against `getRotationMatrix2D`,
 accuracy, mod-90 refinement and honest failure; Part B exactness, aperture and
 featureless refusal, the no-commands-when-not-`ok` rule, the absence of any
-pan/tilt field, 4-connected dominant-axis-first moves and fresh-cut frames;
+pan/tilt field, 4-connected dominant-axis-first moves, safe step-cap handling,
+feedback-only exploration, verified arrival with imperfect motion, recovery
+from ambiguous intermediate frames, stall/budget handling and fresh-cut frames;
 look-at properties, the PLUS sign, Model A squareness, Model B's `H_B(0) = I`,
 intrinsics invariance, the closed-form predictions, arc/chord lengths, no
 frame-to-frame warping, PnP on both exact and re-detected corners, and the
-near-frontal conditioning claim itself.
+near-frontal conditioning claim itself. Projection tests also cover homography
+scale invariance and points at infinity. Model B is checked on the *delivered*
+render path, canvas offset included, not only on its homography. Export tests
+reopen the GIF and check frame delays, colours, and playback order.
 
 ---
 
@@ -327,14 +371,17 @@ near-frontal conditioning claim itself.
   on the *given* 40 × 40 cm square; Model B keeps the raster instead, and the gap
   between the two is measured (11.31 px, 2.06% of the port width).
 * **The intrinsics are assumed** — but measured to be irrelevant to the geometry
-  (residual after a similarity fit ≤ 6.4e-13 px).
+  (residual after a similarity fit ≤ 2.3e-13 px).
 * **Roll is assumed zero.** "Looking directly at it" pins the optical axis, not
   the roll about it; a level camera is a choice, stated once and used everywhere.
 * **Ambiguous crops cannot be localised.** A strip of one straight border or a
   patch of uniform fill does not determine a position. The pipeline says so
-  (29.7% + 2.7% of random crops) instead of guessing.
+  (30.3% + 2.7% of random crops) instead of guessing.
 * **Part B is translation-only** and same-scale: `matchTemplate` is not scale
   invariant, and pan/tilt would break the crop model.
+* **Part B centimetres are approximate:** one mean pixel/cm scale per axis is
+  inferred from the schematic outer edges. Unlike the projective mapping in
+  Parts C/D, these constants cannot describe local scale changes in the drawing.
 * **Near-frontal angles are not recoverable to 0.5° from four corners** — measured
   and explained above. The *rendering* is unaffected; it is the *inverse* problem
   that is ill-conditioned.

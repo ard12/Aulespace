@@ -172,6 +172,10 @@ CROP_MIN_STD = 3.0
 #: Template-match peak score below this => not confidently localised.
 MATCH_MIN_SCORE = 0.60
 
+#: Distinct positions whose correlation differs by less than numerical/texture
+#: resolution cannot identify a unique crop, even inside the NMS neighbourhood.
+MATCH_TIE_TOL = 1e-5
+
 #: Scores within this much of the peak count as "part of the peak plateau".
 MATCH_PLATEAU_TOL = 0.02
 

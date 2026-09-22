@@ -142,7 +142,10 @@ def draw_window(image: np.ndarray, window: Sequence[int],
     t = thickness or _thick(out)
     cv2.rectangle(out, (x, y), (x + w, y + h), color, t, cv2.LINE_AA)
     if label:
-        out = annotate(out, label, (x + 4, max(16, y - 6)), color)
+        (text_w, text_h), baseline = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 4)
+        label_x = max(4, min(x + 4, out.shape[1] - text_w - 4))
+        label_y = max(text_h + 4, min(y - 6, out.shape[0] - baseline - 4))
+        out = annotate(out, label, (label_x, label_y), color)
     return out
 
 
@@ -222,11 +225,19 @@ def save_gif(path: str, frames: Sequence[np.ndarray], fps: float = 6.0,
              loop: int = 0, boomerang: bool = False) -> str:
     """Write a GIF from BGR frames (converted to RGB on the way out)."""
     import os
-    import imageio.v2 as imageio
+    import imageio.v3 as imageio
+
+    if not np.isfinite(fps) or fps <= 0:
+        raise ValueError("fps must be finite and positive")
+    if len(frames) == 0:
+        raise ValueError("at least one frame is required")
 
     seq = [to_rgb(f) for f in frames]
     if boomerang and len(seq) > 2:
         seq = seq + seq[-2:0:-1]
     os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
-    imageio.mimsave(path, seq, duration=1.0 / float(fps), loop=loop)
+    # Pillow expects milliseconds; GIF stores delays in 10 ms units.
+    duration_ms = max(10, int(round(100.0 / float(fps))) * 10)
+    imageio.imwrite(path, np.stack(seq), plugin="pillow", extension=".gif",
+                    duration=duration_ms, loop=loop)
     return path

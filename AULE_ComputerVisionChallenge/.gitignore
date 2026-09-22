@@ -1,0 +1,7 @@
+# Build and editor artefacts -- everything here is regenerated automatically and
+# should not be part of the submitted folder.
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+.pytest_cache/
+.DS_Store

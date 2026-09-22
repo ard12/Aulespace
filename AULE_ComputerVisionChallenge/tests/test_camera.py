@@ -9,6 +9,27 @@ import pytest
 from aulecv import camera, config as C, detect
 
 
+@pytest.mark.parametrize("scale", [1e-200, -1e-15, 1.0, 1e200])
+def test_point_projection_is_independent_of_homogeneous_scale(scale):
+    points = np.array([[10.0, 20.0], [-3.0, 7.0]])
+    assert np.allclose(camera.project_points(scale * np.eye(3), points), points)
+
+
+def test_projection_preserves_negative_depth_and_rejects_horizon():
+    H = np.diag([1.0, 1.0, -1e-13])
+    assert np.allclose(camera.project_points(H, [[1.0, 2.0]]), [[-1e13, -2e13]])
+    H[2] = [1.0, 0.0, -1.0]
+    with pytest.raises(ValueError, match="horizon"):
+        camera.project_points(H, [[1.0, 2.0]])
+
+
+@pytest.mark.parametrize("theta,step", [(np.nan, 2.5), (np.inf, 2.5),
+                                       (22.5, np.inf), (22.5, np.nan), (22.5, 0)])
+def test_return_sequence_rejects_nonfinite_or_zero_steps(theta, step):
+    with pytest.raises(ValueError, match="finite"):
+        camera.generate_return_sequence(theta, step)
+
+
 # ---------------------------------------------------------------------------
 # Look-at and pose  (acceptance item 3)
 # ---------------------------------------------------------------------------
@@ -318,6 +339,30 @@ def test_image_faithful_final_frame_reproduces_the_raw_reference(reference_image
     out = camera.render_port_view(reference_image, H / H[2, 2],
                                   (reference_image.shape[1], reference_image.shape[0]))
     assert np.array_equal(out, reference_image)
+
+
+def test_image_faithful_delivered_frame_reproduces_the_raw_reference(reference_image,
+                                                                     renderer_image_faithful):
+    """The same claim, but for the frame the project actually ships.
+
+    ``model_homography(0)`` being the identity is not enough on its own: the
+    rendered frames also carry the canvas translation.  If that translation were
+    fractional, every Model B frame would go through the interpolator and the
+    theta = 0 output would merely *resemble* the raster.  The offset is rounded
+    to whole pixels, so the delivered frame must contain the raster byte for
+    byte.
+    """
+    rend = renderer_image_faithful
+    tx, ty = rend.offset[0, 2], rend.offset[1, 2]
+    assert tx == pytest.approx(round(tx)) and ty == pytest.approx(round(ty)), (
+        "the Model B canvas offset must be a whole number of pixels")
+
+    out = rend.render(reference_image, 0.0)
+    h, w = reference_image.shape[:2]
+    x0, y0 = int(round(tx)), int(round(ty))
+    assert x0 >= 0 and y0 >= 0 and x0 + w <= out.shape[1] and y0 + h <= out.shape[0], (
+        "rounding the offset must not push the raster off the canvas")
+    assert np.array_equal(out[y0:y0 + h, x0:x0 + w], reference_image)
 
 
 # ---------------------------------------------------------------------------
