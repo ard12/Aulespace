@@ -31,7 +31,7 @@ def test_return_sequence_rejects_nonfinite_or_zero_steps(theta, step):
 
 
 # ---------------------------------------------------------------------------
-# Look-at and pose  (acceptance item 3)
+# Look-at and pose
 # ---------------------------------------------------------------------------
 
 def test_look_at_is_identity_at_theta_zero():
@@ -74,7 +74,7 @@ def test_look_at_refuses_a_degenerate_roll():
 
 
 # ---------------------------------------------------------------------------
-# Model A geometry  (acceptance item 2)
+# Model A geometry
 # ---------------------------------------------------------------------------
 
 def test_G_maps_the_detected_corners_onto_the_physical_square(geometry):
@@ -123,7 +123,7 @@ def test_metric_theta_zero_is_the_rectified_square(renderer_metric, geometry):
 
 
 # ---------------------------------------------------------------------------
-# Plane-induced homography and the PLUS sign  (acceptance item 4)
+# Plane-induced homography and the PLUS sign
 # ---------------------------------------------------------------------------
 
 @pytest.mark.parametrize("theta", [5.0, 22.5, 40.0, -22.5])
@@ -156,7 +156,7 @@ def test_homography_distance_is_scale_invariant():
 
 
 # ---------------------------------------------------------------------------
-# Model B  (acceptance item 6)
+# Model B
 # ---------------------------------------------------------------------------
 
 def test_image_faithful_homography_is_identity_at_theta_zero(renderer_image_faithful):
@@ -191,7 +191,7 @@ def test_model_a_and_b_differ_measurably_and_the_gap_is_reported(geometry, retur
 
 
 # ---------------------------------------------------------------------------
-# Intrinsics invariance  (acceptance item 6)
+# Intrinsics invariance
 # ---------------------------------------------------------------------------
 
 @pytest.mark.parametrize("f,pp", [(700.0, (0.0, 0.0)),
@@ -226,7 +226,7 @@ def test_edge_ratio_is_independent_of_f(geometry):
 
 
 # ---------------------------------------------------------------------------
-# Closed-form physical predictions  (acceptance item 5)
+# Closed-form physical predictions
 # ---------------------------------------------------------------------------
 
 def test_predicted_depths_are_the_derived_expressions():
@@ -266,7 +266,7 @@ def test_rendered_frame_is_a_perspective_view_not_a_flat_crop(side_view_detectio
 
 
 # ---------------------------------------------------------------------------
-# Part D  (acceptance item 7)
+# Part D
 # ---------------------------------------------------------------------------
 
 def test_return_sequence_starts_at_22_5_and_ends_exactly_at_zero(return_thetas):
@@ -366,7 +366,7 @@ def test_image_faithful_delivered_frame_reproduces_the_raw_reference(reference_i
 
 
 # ---------------------------------------------------------------------------
-# PnP  (acceptance item 8)
+# PnP
 # ---------------------------------------------------------------------------
 
 def test_pnp_uses_physical_object_points(side_view_detection, renderer_metric):

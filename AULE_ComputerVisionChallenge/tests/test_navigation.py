@@ -1,4 +1,4 @@
-"""Part B tests: localisation, honest refusal, and the movement convention."""
+"""Part B tests: localisation, ambiguity handling, and the movement convention."""
 
 from __future__ import annotations
 
@@ -89,7 +89,7 @@ def test_oversized_crop_is_refused(reference_image):
 
 
 # ---------------------------------------------------------------------------
-# Refusal to guess  (acceptance item 9)
+# Refusal to guess
 # ---------------------------------------------------------------------------
 
 @pytest.mark.parametrize("win", [(4, 4, 18, 18), (200, 20, 120, 16)])

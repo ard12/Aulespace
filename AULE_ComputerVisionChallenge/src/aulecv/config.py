@@ -235,7 +235,7 @@ HOMOGRAPHY_EQUAL_TOL = 1e-8
 #: Tolerance (cm) on || C || == 100 for every rendered pose.
 POSE_RADIUS_TOL_CM = 1e-6
 
-#: PnP acceptance targets (labelled as *targets*; the measured values are
+#: PnP evaluation targets (labelled as *targets*; the measured values are
 #: reported next to them in notebook 04 and in the README).
 PNP_TARGET_ANGLE_ERR_DEG = 0.5
 PNP_TARGET_DISTANCE_ERR_CM = 1.0

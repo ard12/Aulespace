@@ -1,0 +1,10 @@
+# Running the test suite and executing the notebooks from the command line.
+-r requirements.txt
+pytest>=7.2
+nbconvert>=7.0
+ipykernel>=6.20
+jupyter>=1.0
+
+# Only needed to re-extract assets/reference.png from the assignment PDF;
+# the extracted image is included, so this is optional.
+pymupdf>=1.23

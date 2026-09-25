@@ -12,7 +12,7 @@ the orbit is
 with ``theta > 0`` meaning the camera has moved to the **viewer's right**, which
 is what "a view that's from a slightly right side" asks for.
 
-Look-at rotation (derived, not borrowed)
+Look-at rotation (derivation)
 ----------------------------------------
 Given the camera centre ``C``, the target ``O`` and a ``world_down`` direction
 (the zero-roll choice: "looking directly at it" pins the optical axis but not
