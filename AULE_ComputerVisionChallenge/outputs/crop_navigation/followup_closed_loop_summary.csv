@@ -6,4 +6,4 @@ view,method,runs,reached,wrong_claims,median_moves,lost_views,zoom_changes,undos
 120x100,trust the movement,30,40%,18,20.0,102,0,0,139.54374597353274
 120x100,re-localise only,30,100%,0,32.5,355,0,0,0.5350021004319698
 120x100,A: with zoom,30,100%,0,22.0,45,67,0,0.6647096314954404
-120x100,"B: no zoom, planned route",30,100%,0,26.0,223,0,2,0.5550203942360523
+120x100,"B: no zoom, planned route",30,100%,0,26.0,223,0,2,0.6269022058301006

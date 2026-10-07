@@ -13,9 +13,9 @@ Part B (redo)
 
     * with zoom    -- zoom out until the view contains enough structure, travel
                       zoomed out, and zoom back in once the marker is in view;
-    * without zoom -- map in advance which views CAN be localised, plan a route
-                      that only passes through them, and if a view is still
-                      ambiguous, undo the last move and route around that spot.
+    * without zoom -- prefer informative views; where gaps remain, use bounded
+                      directional probes, not a dead-reckoned position. A reverse
+                      command is a recovery attempt, not a known undo.
 
 Part D (redo)
     The camera's pose is never assumed.  Every frame: find the outer corners,
@@ -27,7 +27,6 @@ Part D (redo)
 from __future__ import annotations
 
 import heapq
-from collections import deque
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Sequence, Tuple
 
@@ -103,6 +102,15 @@ class PanCamera:
                  view_size: Tuple[int, int], px_per_cm: Sequence[float],
                  error: Optional[MotionError] = None, pad: int = 0,
                  max_zoom: float = 1.0):
+        if (len(view_size) != 2 or any(not isinstance(v, (int, np.integer)) or v <= 0 for v in view_size)
+                or not isinstance(pad, (int, np.integer)) or pad < 0):
+            raise ValueError("view dimensions must be positive integers and pad a non-negative integer")
+        if np.shape(start_center) != (2,) or not np.isfinite(start_center).all():
+            raise ValueError("start_center must contain two finite coordinates")
+        if np.shape(px_per_cm) != (2,) or not np.isfinite(px_per_cm).all() or np.any(np.asarray(px_per_cm) <= 0):
+            raise ValueError("px_per_cm must contain two finite positive scales")
+        if not np.isfinite(max_zoom) or max_zoom < 1:
+            raise ValueError("max_zoom must be finite and at least 1")
         self.w, self.h = int(view_size[0]), int(view_size[1])
         self.H, self.W = reference.shape[:2]
         self.pad = int(pad)
@@ -117,6 +125,7 @@ class PanCamera:
         self._zoom = 1.0
         self._clamp()
         self.trail: List[np.ndarray] = [self._c.copy()]
+        self.observations: List[Dict[str, float]] = []  # evaluation, indexed by capture
 
     # -- ground truth (for evaluation only; the navigator never calls these) --
     @property
@@ -128,13 +137,18 @@ class PanCamera:
         return self._zoom
 
     def true_window(self) -> Tuple[int, int, int, int]:
-        """The native-zoom window around the true centre, clamped into the reference."""
-        x = int(np.clip(round(self._c[0] - self.w / 2), 0, self.W - self.w))
-        y = int(np.clip(round(self._c[1] - self.h / 2), 0, self.H - self.h))
+        """Native window in reference coordinates (may include padded background)."""
+        x = int(round(self._c[0] - self.w / 2))
+        y = int(round(self._c[1] - self.h / 2))
         return (x, y, self.w, self.h)
+
+    def true_marker_visible(self, detection: PortDetection) -> bool:
+        """Evaluation only: visibility in the actual native field of view."""
+        return _visible(self._c, self.w, self.h, detection)
 
     # -- the interface the navigator uses --------------------------------------
     def capture(self) -> np.ndarray:
+        self.observations.append({"true_x": float(self._c[0]), "true_y": float(self._c[1])})
         s = self._zoom
         ww, hh = int(round(s * self.w)), int(round(s * self.h))
         x0 = int(round(self._c[0] - ww / 2)) + self.pad
@@ -156,8 +170,12 @@ class PanCamera:
         self.trail.append(self._c.copy())
 
     def set_zoom(self, zoom: float) -> None:
-        self._zoom = float(np.clip(zoom, 1.0, self.max_zoom))
-        self._clamp()
+        _positive(zoom, "zoom")
+        new_zoom = float(np.clip(zoom, 1.0, self.max_zoom))
+        half = 0.5 * new_zoom * np.array([self.w, self.h])
+        if np.any(self._c - half < -self.pad) or np.any(self._c + half > [self.W + self.pad, self.H + self.pad]):
+            raise ValueError("zoom would leave the simulated scene; add background padding")
+        self._zoom = new_zoom  # changing focal length must not translate the camera
 
     def _clamp(self) -> None:
         # The centre stays over the reference; the zoomed window stays inside the world.
@@ -211,6 +229,9 @@ class Localizer:
         return self._scaled[key]
 
     def locate(self, view: np.ndarray, zoom: float = 1.0) -> ViewFix:
+        _positive(zoom, "zoom")
+        if view.shape[:2] != (self.h, self.w):
+            raise ValueError("captured view must have the calibrated native dimensions")
         scene = self._world_at(zoom)
         loc = nav.localize_crop(view, scene)
         if loc.x is None:
@@ -244,10 +265,30 @@ class NavResult:
 
 
 def _native_window(center: np.ndarray, w: int, h: int, ref_shape) -> Tuple[int, int, int, int]:
-    H, W = ref_shape[:2]
-    x = int(np.clip(round(center[0] - w / 2), 0, W - w))
-    y = int(np.clip(round(center[1] - h / 2), 0, H - h))
+    # Do not shift a padded view into the reference: that invents unseen pixels.
+    x = int(round(center[0] - w / 2))
+    y = int(round(center[1] - h / 2))
     return (x, y, w, h)
+
+
+def _visible(center, w, h, detection) -> bool:
+    """Visibility in a real (possibly padded) native view, without clamping it."""
+    x, y = int(round(center[0] - w / 2)), int(round(center[1] - h / 2))
+    x0, y0, x1, y1 = nav._marker_box(detection)
+    if w >= x1 - x0 and h >= y1 - y0:
+        return bool(x <= x0 and y <= y0 and x + w > x1 and y + h > y1)
+    cx, cy = detection.marker_center
+    return bool(x <= cx < x + w and y <= cy < y + h)
+
+
+def _budget(value, name):
+    if not isinstance(value, (int, np.integer)) or value < 0:
+        raise ValueError(f"{name} must be a non-negative integer")
+
+
+def _positive(value, name):
+    if not np.isfinite(value) or value <= 0:
+        raise ValueError(f"{name} must be finite and positive")
 
 
 def _goal_center(center: np.ndarray, detection: PortDetection, w: int, h: int, ref_shape) -> np.ndarray:
@@ -303,7 +344,15 @@ def navigate_with_zoom(camera: PanCamera, localizer: Localizer, detection: PortD
     zoom off, which shows the problem this solves.  ``axis_first=True`` moves
     one axis at a time, longer distance first, like the original Part B plan.
     """
-    levels = [float(z) for z in zoom_levels if z <= camera.max_zoom + 1e-9] or [1.0]
+    _budget(max_moves, "max_moves")
+    _positive(step_px, "step_px")
+    levels = [float(z) for z in zoom_levels]
+    if (not levels or levels[0] != 1.0 or not np.all(np.isfinite(levels))
+            or any(b <= a for a, b in zip(levels, levels[1:]))):
+        raise ValueError("zoom_levels must start at 1 and increase strictly")
+    levels = [z for z in levels if z <= camera.max_zoom + 1e-9]
+    if not levels:
+        raise ValueError("camera must support native zoom")
     ppc = nav.pixels_per_cm(detection)
     ppc = np.array(ppc, float)
     w, h = localizer.w, localizer.h
@@ -312,24 +361,31 @@ def navigate_with_zoom(camera: PanCamera, localizer: Localizer, detection: PortD
     spiral = _spiral(C.EXPLORE_STEP_FRAC * max(w, h))
     log: List[Dict[str, object]] = []
     estimate: Optional[np.ndarray] = None
+    confirmation_at_move = -1
 
     def record(event, fix, command=None):
         log.append({"capture": len(log), "moves": moves, "zoom": levels[level],
                     "status": fix.status, "event": event,
                     "est_x": None if fix.center is None else round(float(fix.center[0]), 2),
                     "est_y": None if fix.center is None else round(float(fix.center[1]), 2),
-                    "true_x": round(float(camera.true_center[0]), 2),
-                    "true_y": round(float(camera.true_center[1]), 2),
                     "command_cm": command})
 
     while moves <= max_moves:
         fix = localizer.locate(camera.capture(), levels[level])
         if fix.status != "ok":
             lost += 1
+            zoomed_out = False
             if level < len(levels) - 1:
+                try:
+                    camera.set_zoom(levels[level + 1])
+                    zoomed_out = True
+                except ValueError:
+                    # The wider view would leave the scene here: treat the
+                    # zoom level as unavailable and explore instead.
+                    record("zoom unavailable", fix)
+            if zoomed_out:
                 record("zoom out", fix)
                 level += 1
-                camera.set_zoom(levels[level])
                 zoom_changes += 1
                 continue
             if moves >= max_moves:
@@ -341,20 +397,25 @@ def navigate_with_zoom(camera: PanCamera, localizer: Localizer, detection: PortD
             continue
 
         estimate = fix.center
-        window = _native_window(estimate, w, h, ref_shape)
-        if nav.marker_visible(window, detection, "auto"):
+        if _visible(estimate, w, h, detection):
             if level == 0:
                 record("arrived", fix)
                 return NavResult("visible", moves, zoom_changes, lost, 0, log, estimate)
-            record("zoom in to confirm", fix)
-            level = 0
-            camera.set_zoom(levels[0])
-            zoom_changes += 1
-            continue
+            if confirmation_at_move != moves:
+                record("zoom in to confirm", fix)
+                confirmation_at_move = moves
+                level = 0
+                camera.set_zoom(levels[0])
+                zoom_changes += 1
+                continue
         if moves >= max_moves:
             record("give up", fix)
             break
         vec = _goal_center(estimate, detection, w, h, ref_shape) - estimate
+        if confirmation_at_move == moves and np.linalg.norm(vec) < 1.0:
+            # Native confirmation failed here. Seek a different view instead of
+            # zooming out/in forever without consuming the movement budget.
+            vec = next(spiral)
         if axis_first:
             major = int(np.argmax(np.abs(vec)))
             vec = np.where(np.arange(2) == major, vec, 0.0)
@@ -377,6 +438,8 @@ class LocalizabilityMap:
 
     def __init__(self, reference: np.ndarray, localizer: Localizer, detection: PortDetection,
                  stride: int = C.LOCALIZABILITY_STRIDE_PX):
+        if not isinstance(stride, (int, np.integer)) or stride <= 0:
+            raise ValueError("stride must be a positive integer")
         self.stride = int(stride)
         self.w, self.h = localizer.w, localizer.h
         self.ref_shape = reference.shape
@@ -388,7 +451,9 @@ class LocalizabilityMap:
         for j, y in enumerate(self.ys):
             for i, x in enumerate(self.xs):
                 crop = nav.extract_crop(reference, int(x), int(y), self.w, self.h)
-                self.ok[j, i] = localizer.locate(crop, 1.0).status == "ok"
+                fix = localizer.locate(crop, 1.0)
+                self.ok[j, i] = (fix.status == "ok" and fix.center is not None
+                                and np.linalg.norm(fix.center - [x + self.w / 2, y + self.h / 2]) <= 1.0)
                 self.goal[j, i] = nav.marker_visible((int(x), int(y), self.w, self.h), detection, "auto")
         padded = np.pad(self.ok, 1, constant_values=False)
         neighbours = np.ones_like(self.ok)
@@ -465,12 +530,13 @@ def navigate_without_zoom(camera: PanCamera, localizer: Localizer, lmap: Localiz
 
     After every move the view is re-localised and the route re-planned from that
     fix.  The route avoids views that cannot be localised; where it has to cross
-    them (separate islands), only those few steps are executed without a fix,
-    counted on the commanded moves, and the next fix takes over again.  A view
+    them (separate islands), repeated bounded probes seek the next visible
+    region. No commanded displacement is treated as a measured position. A view
     the map promised but that turns out ambiguous (the move landed somewhere
     unexpected) is undone once and avoided.  If the very first view cannot be
     placed, the camera searches outward until one can.
     """
+    _budget(max_moves, "max_moves")
     camera.set_zoom(1.0)
     ppc = np.array(nav.pixels_per_cm(detection), float)
     w, h = localizer.w, localizer.h
@@ -479,7 +545,7 @@ def navigate_without_zoom(camera: PanCamera, localizer: Localizer, lmap: Localiz
     moves, lost, backoffs, blind = 0, 0, 0, 0
     log: List[Dict[str, object]] = []
     estimate: Optional[np.ndarray] = None      # last position from a fix
-    believed: Optional[np.ndarray] = None      # dead-reckoned position during a planned blind crossing
+    probe_step: Optional[np.ndarray] = None   # an action direction, never a position estimate
     expected_blind = False                     # did the plan say the next view would be unlocalisable?
     last_move: Optional[np.ndarray] = None
     target_cell: Optional[Tuple[int, int]] = None
@@ -489,8 +555,6 @@ def navigate_without_zoom(camera: PanCamera, localizer: Localizer, lmap: Localiz
                     "event": event,
                     "est_x": None if fix.center is None else round(float(fix.center[0]), 2),
                     "est_y": None if fix.center is None else round(float(fix.center[1]), 2),
-                    "true_x": round(float(camera.true_center[0]), 2),
-                    "true_y": round(float(camera.true_center[1]), 2),
                     "command_cm": command})
 
     def step_towards(position):
@@ -498,29 +562,37 @@ def navigate_without_zoom(camera: PanCamera, localizer: Localizer, lmap: Localiz
         goal = _goal_center(position, detection, w, h, lmap.ref_shape)
         limit = float(lmap.stride)
         if float(np.linalg.norm(goal - position)) <= limit:
-            return goal - position, None
+            return goal - position, None, None
         path = lmap.route(lmap.cell_of(position), lmap.cell_of(goal))
         cell = path[1] if len(path) > 1 else path[0]
         vec = lmap.center_of(cell) - position
         dist = float(np.linalg.norm(vec))
-        return (vec if dist <= limit else vec / dist * limit), cell
+        probe = None
+        if not lmap.sees(cell):
+            # Aim across the gap at the next informative view. Keep checking
+            # after every probe, without pretending to know the distance moved.
+            exit_cell = next((p for p in path[1:] if lmap.sees(p)), path[-1])
+            direction = lmap.center_of(exit_cell) - position
+            length = float(np.linalg.norm(direction))
+            if length > 0:
+                probe = direction / length * limit
+        return (vec if dist <= limit else vec / dist * limit), cell, probe
 
     while moves <= max_moves:
         fix = localizer.locate(camera.capture(), 1.0)
         if fix.status == "ok":
-            estimate, believed, blind = fix.center, None, 0
-            if nav.marker_visible(_native_window(estimate, w, h, lmap.ref_shape), detection, "auto"):
+            estimate, probe_step, blind = fix.center, None, 0
+            if _visible(estimate, w, h, detection):
                 record("arrived", fix)
                 return NavResult("visible", moves, 0, lost, backoffs, log, estimate)
             if moves >= max_moves:
                 record("give up", fix)
                 break
-            vec, target_cell = step_towards(estimate)
+            vec, target_cell, probe_step = step_towards(estimate)
             expected_blind = target_cell is not None and not lmap.sees(target_cell)
             command = _command(camera, vec, ppc)
             record("blind step (planned)" if expected_blind else "move", fix, command)
             last_move = vec
-            believed = estimate + vec if expected_blind else None
             moves += 1
             continue
 
@@ -531,11 +603,10 @@ def navigate_without_zoom(camera: PanCamera, localizer: Localizer, lmap: Localiz
         if estimate is None:                                   # never had a fix: search
             command = _command(camera, next(spiral), ppc)
             record("explore", fix, command)
-        elif believed is not None and blind < C.LOCALIZABILITY_MAX_BLIND_STEPS:
-            vec, target_cell = step_towards(believed)          # planned crossing: keep going
+        elif probe_step is not None and blind < C.LOCALIZABILITY_MAX_BLIND_STEPS:
+            vec = probe_step                                  # search action, not dead reckoning
             command = _command(camera, vec, ppc)
             record("blind step (planned)", fix, command)
-            believed = believed + vec
             last_move = vec
             blind += 1
         elif last_move is not None and not expected_blind:     # surprise: undo once, avoid that cell
@@ -544,11 +615,11 @@ def navigate_without_zoom(camera: PanCamera, localizer: Localizer, lmap: Localiz
             command = _command(camera, -last_move, ppc)
             record("lost: undo last move", fix, command)
             backoffs += 1
-            last_move, believed = None, None
+            last_move, probe_step = None, None
         else:                                                   # crossing went wrong: search
             command = _command(camera, next(spiral), ppc)
             record("explore", fix, command)
-            last_move, believed = None, None
+            last_move, probe_step = None, None
         moves += 1
     return NavResult("exhausted", moves, 0, lost, backoffs, log, estimate)
 
@@ -582,8 +653,7 @@ def navigate_trusting_motion(camera: PanCamera, localizer: Localizer, detection:
         _command(camera, step, ppc)
         believed = believed + step            # trusting that the move happened exactly
         moves += 1
-        log.append({"moves": moves, "believed_x": float(believed[0]), "believed_y": float(believed[1]),
-                    "true_x": float(camera.true_center[0]), "true_y": float(camera.true_center[1])})
+        log.append({"moves": moves, "believed_x": float(believed[0]), "believed_y": float(believed[1])})
     believed_ok = nav.marker_visible(_native_window(believed, w, h, ref_shape), detection, "auto")
     return NavResult("visible" if believed_ok else "exhausted", moves, 0, lost, 0, log, believed)
 
@@ -623,6 +693,7 @@ class OrbitCamera:
         self._rng = np.random.default_rng(self.error.seed)
         pose = cam.camera_pose_for_angle(start_theta_deg, radius_cm)
         self._R, self._C = pose["R"].copy(), pose["C"].copy()
+        self.observations: List[Dict[str, float]] = []  # evaluator only, never read by controller
 
     # -- ground truth (evaluation only) --
     @property
@@ -644,6 +715,9 @@ class OrbitCamera:
 
     # -- the interface the controller uses --
     def capture(self) -> np.ndarray:
+        self.observations.append({"true_theta_deg": self.true_theta_deg,
+                                  "true_distance_cm": self.true_distance_cm,
+                                  "true_pointing_err_deg": self.true_pointing_error_deg})
         t = -self._R @ self._C
         H = cam.plane_to_image_homography(self.K, self._R, t) @ self.G
         img = cam.render_port_view(self.reference, H, self.canvas)
@@ -672,7 +746,13 @@ def pose_from_raster_homography(H: np.ndarray, K: np.ndarray, G: np.ndarray) -> 
     r2 having unit length, its sign by the port being in front of the camera,
     and the rotation is snapped to the nearest true rotation matrix.
     """
-    M = np.linalg.inv(K) @ np.asarray(H, float) @ np.linalg.inv(G)
+    H = np.asarray(H, float)
+    if H.shape != (3, 3) or not np.isfinite(H).all() or not np.any(H):
+        raise ValueError("homography must be a finite nonzero 3 x 3 matrix")
+    H = H / np.max(np.abs(H))
+    M = np.linalg.inv(K) @ H @ np.linalg.inv(G)
+    if np.linalg.norm(np.cross(M[:, 0], M[:, 1])) <= 1e-12 * np.linalg.norm(M[:, 0]) * np.linalg.norm(M[:, 1]):
+        raise ValueError("homography has degenerate plane axes")
     lam = 2.0 / (np.linalg.norm(M[:, 0]) + np.linalg.norm(M[:, 1]))
     if M[2, 2] * lam < 0:
         lam = -lam
@@ -702,14 +782,19 @@ class PoseEstimator:
     The four corners give a quick, robust first guess.  Near the front view
     that guess is weak (a slightly turned square looks almost unchanged).  So
     the guess seeds ECC, which aligns the reference to the whole image and gives
-    a homography; the pose is read out of that homography.  If alignment fails
-    or scores poorly, the corner answer is used and flagged.
+    a homography. Its decomposition seeds a PnP fit to ECC-aligned plane points.
+    ``dense_solver='homography'`` retains the direct-decomposition baseline.
+    If alignment fails or scores poorly, the corner answer is used and flagged.
     """
 
     def __init__(self, reference: np.ndarray, K: np.ndarray, G: np.ndarray,
                  coarse_scale: float = C.DENSE_COARSE_SCALE,
                  iterations: Tuple[int, int] = C.DENSE_ITERATIONS,
-                 min_score: float = C.DENSE_MIN_SCORE):
+                 min_score: float = C.DENSE_MIN_SCORE,
+                 dense_solver: str = "pnp"):
+        if dense_solver not in ("homography", "pnp"):
+            raise ValueError("dense_solver must be 'homography' or 'pnp'")
+        self.dense_solver = dense_solver
         self.K, self.G = np.asarray(K, float), np.asarray(G, float)
         self.ref = to_gray(reference).astype(np.float32)
         self.s = float(coarse_scale)
@@ -746,6 +831,21 @@ class PoseEstimator:
         if not np.isfinite(score) or score < self.min_score:
             return self._readout(R0, t0, "corners", float(score), pnp["theta_deg"], pnp["distance_cm"])
         R, t = pose_from_raster_homography(warp.astype(np.float64), self.K, self.G)
+        if self.dense_solver == "pnp":
+            # ECC supplies image correspondences, not a known camera pose. Fit
+            # those observations to a physically valid 6-DOF camera with PnP.
+            # These points are correlated; they are NOT 25 independent detections.
+            half = C.OUTER_SIDE_CM / 2
+            xy = np.array([(x, y) for y in np.linspace(-half, half, 5)
+                           for x in np.linspace(-half, half, 5)], dtype=np.float64)
+            obj = np.column_stack([xy, np.zeros(len(xy))])
+            img_pts = cam.project_points(warp @ np.linalg.inv(self.G), xy)
+            rvec, _ = cv2.Rodrigues(R)
+            ok, rvec, tvec = cv2.solvePnP(obj, img_pts, self.K, None, rvec, t.reshape(3, 1),
+                                        useExtrinsicGuess=True, flags=cv2.SOLVEPNP_ITERATIVE)
+            if ok:
+                R, _ = cv2.Rodrigues(rvec)
+                t = tvec.reshape(3)
         return self._readout(R, t, "dense", float(score), pnp["theta_deg"], pnp["distance_cm"])
 
 
@@ -755,9 +855,9 @@ class PoseEstimator:
 
 @dataclass
 class ReturnResult:
-    status: str                       #: 'converged' | 'not_converged'
+    status: str                       #: 'converged' | 'not_converged' | 'localization_failed'
     iterations: int
-    log: List[Dict[str, float]]
+    log: List[Dict[str, object]]
 
 
 def return_to_front_closed_loop(camera: OrbitCamera, estimator: PoseEstimator,
@@ -770,24 +870,48 @@ def return_to_front_closed_loop(camera: OrbitCamera, estimator: PoseEstimator,
     """Walk back to the front view using only pose estimates from images.
 
     Each iteration: estimate the pose from the image; if the estimate is at the
-    front (angle and distance within tolerance) on two frames in a row, stop.
+    front (full position and orientation within tolerance) on two frames in a row, stop.
     Otherwise aim for the orbit point up to ``step_deg`` closer to 0, at
     ``radius_cm``, looking at the centre, and send the move needed to get
     there FROM THE ESTIMATED pose.  Distance errors are corrected on the way.
     """
-    log: List[Dict[str, float]] = []
+    _budget(max_iterations, "max_iterations")
+    for name, value in (("step_deg", step_deg), ("radius_cm", radius_cm),
+                        ("tol_deg", tol_deg), ("tol_cm", tol_cm)):
+        _positive(value, name)
+    log: List[Dict[str, object]] = []
     settled = 0
+    front = cam.camera_pose_for_angle(0.0, radius_cm)
     for k in range(max_iterations):
-        est = estimator.estimate(camera.capture(), refine=refine)
-        log.append({"iteration": k, "true_theta_deg": camera.true_theta_deg,
+        try:
+            est = estimator.estimate(camera.capture(), refine=refine)
+        except (ValueError, RuntimeError, cv2.error, np.linalg.LinAlgError) as exc:
+            log.append({"iteration": k, "event": "localization failed", "reason": str(exc)})
+            return ReturnResult("localization_failed", k + 1, log)
+        if not (np.isfinite(est.R).all() and np.isfinite(est.C).all() and np.linalg.norm(est.C) > 0
+                and np.isfinite(est.theta_deg) and np.isfinite(est.distance_cm)):
+            log.append({"iteration": k, "event": "non-finite pose"})
+            return ReturnResult("localization_failed", k + 1, log)
+        position_error = float(np.linalg.norm(est.C - front["C"]))
+        orientation_error = float(np.degrees(np.arccos(np.clip(
+            (np.trace(est.R @ front["R"].T) - 1.0) / 2.0, -1.0, 1.0))))
+        pointing_error = float(np.degrees(np.arccos(np.clip(
+            est.R[2] @ (-est.C / np.linalg.norm(est.C)), -1.0, 1.0))))
+        log.append({"iteration": k,
                     "est_theta_deg": est.theta_deg, "corner_theta_deg": est.corner_theta_deg,
-                    "true_distance_cm": camera.true_distance_cm, "est_distance_cm": est.distance_cm,
-                    "true_pointing_err_deg": camera.true_pointing_error_deg,
+                    "est_distance_cm": est.distance_cm, "est_position_error_cm": position_error,
+                    "est_orientation_error_deg": orientation_error,
+                    "est_pointing_err_deg": pointing_error,
                     "method": est.method, "alignment_score": est.alignment_score})
-        at_front = abs(est.theta_deg) < tol_deg and abs(est.distance_cm - radius_cm) < tol_cm
+        at_front = (position_error < tol_cm and orientation_error < tol_deg
+                    and pointing_error < tol_deg and abs(est.theta_deg) < tol_deg)
         settled = settled + 1 if at_front else 0
         if settled >= 2:
             return ReturnResult("converged", k + 1, log)
+        if at_front:
+            continue  # confirm from a second frame without injecting another motion error
+        if k + 1 == max_iterations:
+            break  # never end on an unobserved move
         theta_next = est.theta_deg - np.sign(est.theta_deg) * min(step_deg, abs(est.theta_deg))
         target = cam.camera_pose_for_angle(theta_next, radius_cm)
         delta_body = est.R @ (target["C"] - est.C)

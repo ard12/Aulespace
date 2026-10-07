@@ -2,7 +2,8 @@
 
 Solutions to Parts A-D: rotation estimation, crop localisation and camera
 navigation, perspective rendering at 22.5 degrees, and a return to the frontal
-view while remaining 100 cm from the port centre.
+view on a nominal 100 cm orbit. The follow-up explicitly measures deviations
+caused by unknown motion errors.
 
 ## Setup
 
@@ -63,6 +64,8 @@ set `AULECV_ASSIGNMENT_PDF` to its path.
 | `notebooks/06_closed_loop_camera_return.ipynb` | Follow-up: Part D with the pose found from the image every step |
 | `src/aulecv/` | Shared implementation |
 | `tests/` | Regression tests |
+| `tools/verify_followup.py` | Independent held-out navigation and pose experiments |
+| `tools/package_followup.py` | Build the portable demo and clean submission ZIP |
 | `outputs/` | Rendered images, animations and numerical results |
 
 ## Approach
@@ -108,7 +111,7 @@ The executed notebooks contain the experiments, derivations and full result tabl
 - Return trajectory: maximum distance deviation from 100 cm was 1.4e-14 cm.
 - PnP on rendered frames: maximum distance error 0.1118 cm; the 0.5-degree angle
   target was met on 8 of 10 frames. The two misses occurred near the frontal view.
-- Test suite: 198 tests passed (188 original, 10 for the follow-up).
+- Test suite: 226 tests passed (188 original, 38 follow-up cases).
 
 Main visual outputs are `outputs/side_view_22_5.png`,
 `outputs/side_view_22_5_image_faithful.png` and `outputs/camera_return.gif`.
@@ -124,21 +127,33 @@ notebooks `05` and `06`; tests `tests/test_closed_loop.py`.
 **The problem.** Re-localising at every step of the original Part B route shows that
 28 of its 65 views cannot be located on their own: they contain only horizontal
 lines, so they fix the height but not the left-right position. Trusting the moves
-hid this, and with motion errors it fails: in 40 random runs with 50-150% motion
-errors, trusting the motion reached the marker in only 22% of runs, and in 31
+hid this, and with motion errors it fails: in 40 random runs with actual motion
+equal to 50-150% of the commanded distance, trusting the motion reached the marker in only 22% of runs, and in 31
 runs it reported success while the marker was not in view.
 
 **Part B, subtask A (with zoom).** After every move the view is template-matched at
 the current zoom. A view that cannot be placed triggers a zoom out (1, 1.5, 2, 3x);
 the camera travels at the zoom that gave a fix, then zooms back in and confirms
-arrival from a native-zoom fix.
+arrival from a native-zoom fix. If a wider view would leave the scene, that zoom
+level is treated as unavailable there and the camera explores instead.
 
 **Part B, subtask B (no zoom).** A localisability map is computed once: for every
 grid position, can a view there be located? The route is the cheapest path over
 that map. It prefers views far from unlocatable ones, and only crosses unlocatable
 views where separate areas must be joined. After every move the view is
-re-localised and the route re-planned. If a promised view turns out unplaceable,
-the move is undone once and that spot avoided.
+re-localised and the route re-planned. Across gaps it repeats bounded probes toward
+an informative region, without updating position from commanded movement. If a
+promised view turns out unplaceable, a reverse move is attempted and that planned
+cell is penalised. Reversing is not assumed to restore the old position.
+
+**Diagonal moves.** Each command is the straight-line vector from the estimated
+position to the goal, so x and y move together. `axis_first=True` moves along the
+larger offset first, as the original Part B route did; the comparison table below uses
+it. On 12 runs with the same starts and hidden motion errors, both reached the marker
+in 12 of 12; diagonal took a median of 15 moves, one axis at a time 16.5. The
+no-zoom route also allows diagonal steps, because it searches over all eight
+neighbours. Each move is re-localised either way, so a diagonal step that lands wrong
+is corrected on the next one.
 
 | 40 runs, 200 x 170 view | Reached the marker | Wrongly claimed success | Worst final error |
 |---|---|---|---|
@@ -154,7 +169,9 @@ needed 355 views it could not place, zoom needed 45, and the planned route neede
 
 **Part D.** The pose is estimated from each image: four-corner PnP for a first guess,
 then dense alignment of the whole image to the reference (ECC). That gives the
-reference-to-image homography, from which the pose is read out. The controller then
+reference-to-image homography. A final PnP fit to a 5 x 5 grid of ECC-aligned plane
+points constrains the result to a physical camera pose. These correlated points
+are not independent feature detections. The controller then
 aims for the orbit point up to 2.5 degrees closer to the front, at 100 cm, looking
 at the centre, and sends the move needed from the estimated pose. Moves are executed
 with 70-120% of the commanded translation, translation and rotation noise, and image
@@ -162,17 +179,65 @@ noise.
 
 - The dense estimate stays within 0.011 degrees of the truth at every angle tested.
   Corner PnP is off by up to 2.6 degrees near the front.
-- In 8 of 8 runs the dense loop converged (median 12.5 iterations), ending within
-  0.042 degrees of the front and 0.085 cm of 100 cm.
+- In 8 of 8 runs the dense loop converged (median 13.5 iterations), ending within
+  0.077 degrees of the front and 0.085 cm of 100 cm. Worst full 3-D position error
+  was 0.139 cm; worst pointing error was 0.099 degrees. The largest observed
+  radial deviation during these runs was 0.147 cm.
 - With corner PnP alone it converged in 0 of 8 runs: near the front its estimate
   is too noisy, so it keeps chasing errors that are not there.
 
+The stop check now covers full 3-D position, orientation, pointing and azimuth,
+not just distance and horizontal angle. It requires two confirming frames without
+an intervening move. Detection failure stops control, and the last commanded move
+is always observed. Controller logs contain estimates only; simulator truth is
+joined afterwards by the evaluator using the same captured frame. Tests run both
+controllers through interfaces that expose no simulator state.
+
+**Precision limit.** The loop cannot stop closer to the front than its own moves
+allow. The runs above use 0.05 cm and 0.05 degrees of random error per move per axis.
+`tools/part_d_noise_sweep.py` varies that error, 6 runs per setting:
+
+| Error per move | Converged, 0.1 tolerance | Converged, 0.25 tolerance |
+|---|---|---|
+| 0.05 | 6 of 6 | 6 of 6 |
+| 0.07 | 6 of 6 | 6 of 6 |
+| 0.10 | 2 of 6 | 6 of 6 |
+
+With 0.10 per move and a 0.1 tolerance, a single move rarely lands inside the
+tolerance, so 4 runs used all 30 iterations. They still ended near the front (worst
+0.20 cm, 0.30 degrees) and reported "not converged" rather than claiming success.
+None of the 36 runs claimed convergence falsely. The tolerance should therefore be set
+above the camera's real per-move precision (about 2-3 times its per-axis error).
+
+### Independent verification
+
+Run `python tools/verify_followup.py` (and `python tools/part_d_noise_sweep.py` for the
+precision limit above). Results are saved in `outputs/verification/`.
+The held-out seed differs from the demonstration seed:
+
+- Both B methods reached the marker in all 32 additional cases each, across two
+  view sizes, motion gains 0.4-1.6, bias and noise. No false arrival claims;
+  worst final localisation error was 0.676 px.
+- Across 18 perturbed views (both sides, different radii, vertical offset, roll,
+  sensor noise and global brightness/contrast changes), ECC-to-PnP reduced worst
+  pose-position error from 0.0262 cm to 0.0139 cm versus homography decomposition.
+- Both pose solvers converged in all 8 additional return cases. For ECC-to-PnP,
+  worst final 3-D position error was 0.122 cm and pointing error 0.094 degrees.
+  The hold-out evaluator uses 0.15 cm / 0.15 degree final position/pointing bounds;
+  those are evaluation bounds, not a guarantee of the controller's 0.1 thresholds.
+- All seven project notebooks execute without errors on Python 3.14.3.
+
 **Limits of the follow-up.** The camera and scene are simulated with the same flat
 target model the estimators use, so dense alignment sees near-ideal images apart from
-the added noise. On real images, lighting changes and reflections break the
-brightness assumption ECC relies on, and the lens must be calibrated first. In Part
+the added noise. ECC tolerates global brightness and contrast changes, but local
+shadows, reflections, occlusion and lens distortion remain unvalidated. The lens
+must be calibrated first. In Part
 B the zoom level is assumed to be read back from the lens, and moves are translations
-parallel to the target.
+parallel to the target. A featureless view cannot provide a unique position;
+bounded search may exhaust its budget. Exactly 100 cm at every instant cannot be
+guaranteed under unknown motion errors and intermittent imaging. The simulator
+tests sampled poses, not continuous orbital dynamics. Stop thresholds apply to
+estimates: measured true position can be slightly outside the 0.1 cm threshold.
 
 ## Assumptions and limitations
 
