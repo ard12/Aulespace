@@ -65,7 +65,6 @@ set `AULECV_ASSIGNMENT_PDF` to its path.
 | `src/aulecv/` | Shared implementation |
 | `tests/` | Regression tests |
 | `tools/verify_followup.py` | Independent held-out navigation and pose experiments |
-| `tools/package_followup.py` | Build the portable demo and clean submission ZIP |
 | `outputs/` | Rendered images, animations and numerical results |
 
 ## Approach
@@ -206,7 +205,9 @@ allow. The runs above use 0.05 cm and 0.05 degrees of random error per move per 
 With 0.10 per move and a 0.1 tolerance, a single move rarely lands inside the
 tolerance, so 4 runs used all 30 iterations. They still ended near the front (worst
 0.20 cm, 0.30 degrees) and reported "not converged" rather than claiming success.
-None of the 36 runs claimed convergence falsely. The tolerance should therefore be set
+None of the 36 runs claimed convergence falsely. The stop test is applied to
+estimates, so the true final error can sit slightly above it: with the 0.25
+tolerance the worst true position error was 0.26 cm. The tolerance should therefore be set
 above the camera's real per-move precision (about 2-3 times its per-axis error).
 
 ### Independent verification
