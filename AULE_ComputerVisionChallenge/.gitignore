@@ -5,3 +5,6 @@ __pycache__/
 .ipynb_checkpoints/
 .pytest_cache/
 .DS_Store
+
+# Personal preparation material: never part of the submission.
+interview/

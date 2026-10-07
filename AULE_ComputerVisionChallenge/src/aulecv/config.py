@@ -239,3 +239,45 @@ POSE_RADIUS_TOL_CM = 1e-6
 #: reported next to them in notebook 04 and in the README).
 PNP_TARGET_ANGLE_ERR_DEG = 0.5
 PNP_TARGET_DISTANCE_ERR_CM = 1.0
+
+# ---------------------------------------------------------------------------
+# Follow-up: closed-loop Parts B and D (closed_loop.py)
+# ---------------------------------------------------------------------------
+
+#: Part B closed loop: nominal camera move per step, reference pixels (~0.73 cm).
+CLOSED_LOOP_STEP_PX = 10.0
+
+#: Part B with zoom: the zoom-out ladder tried when a view cannot be localised.
+#: 3.0 is the widest view that still fits the 200 x 170 window inside the scene.
+CLOSED_LOOP_ZOOM_LEVELS = (1.0, 1.5, 2.0, 3.0)
+
+#: Part B without zoom: grid spacing of the localisability map, reference pixels.
+#: One map cell is one planned move.
+LOCALIZABILITY_STRIDE_PX = 10
+
+#: Part D dense refinement: ECC runs first on a half-size copy, then briefly at full size.
+DENSE_COARSE_SCALE = 0.5
+DENSE_ITERATIONS = (60, 15)
+
+#: Below this ECC correlation the dense answer is not trusted and the corner PnP is used.
+DENSE_MIN_SCORE = 0.95
+
+#: Part D closed loop: "at the front" means the ESTIMATE is within these, two frames running.
+CLOSED_LOOP_TOL_DEG = 0.1
+CLOSED_LOOP_TOL_CM = 0.1
+CLOSED_LOOP_MAX_ITERATIONS = 30
+
+#: Route cost per step near unlocalisable views: weight / clearance-in-cells.
+#: Larger values buy more margin at the price of longer routes.
+LOCALIZABILITY_CLEARANCE_WEIGHT = 2.0
+
+#: Route cost of stepping onto a view that cannot be localised.  High, so the
+#: route only does it where there is no other way (separate islands).
+LOCALIZABILITY_BLIND_STEP_COST = 25.0
+
+#: Most consecutive steps executed without a fix during a planned crossing.
+LOCALIZABILITY_MAX_BLIND_STEPS = 12
+
+#: Aim this far inside the range of window positions that show the marker, so a
+#: little motion error at the end does not land just outside it.
+CLOSED_LOOP_GOAL_MARGIN_PX = 6.0

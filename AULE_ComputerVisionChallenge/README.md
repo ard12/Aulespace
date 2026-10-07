@@ -35,7 +35,7 @@ jupyter nbconvert --to notebook --execute --inplace notebooks/*.ipynb
 test runner and notebook tooling. The notebooks and tests load the package
 directly from `src/`, so no install step is needed for the code itself.
 
-Tested configurations (all 188 tests pass and all five notebooks execute without
+Tested configurations (all 188 original tests pass and the original five notebooks execute without
 errors, with identical results):
 
 | Python | NumPy | OpenCV | matplotlib | pandas |
@@ -59,6 +59,8 @@ set `AULECV_ASSIGNMENT_PDF` to its path.
 | `notebooks/02_crop_navigation.ipynb` | Part B: localisation, movement plans and feedback navigation |
 | `notebooks/03_homography_22_5deg.ipynb` | Part C: perspective rendering and geometric validation |
 | `notebooks/04_camera_return.ipynb` | Part D: camera trajectory, animation and pose validation |
+| `notebooks/05_closed_loop_crop_navigation.ipynb` | Follow-up: Part B without trusting the motion (with and without zoom) |
+| `notebooks/06_closed_loop_camera_return.ipynb` | Follow-up: Part D with the pose found from the image every step |
 | `src/aulecv/` | Shared implementation |
 | `tests/` | Regression tests |
 | `outputs/` | Rendered images, animations and numerical results |
@@ -106,10 +108,71 @@ The executed notebooks contain the experiments, derivations and full result tabl
 - Return trajectory: maximum distance deviation from 100 cm was 1.4e-14 cm.
 - PnP on rendered frames: maximum distance error 0.1118 cm; the 0.5-degree angle
   target was met on 8 of 10 frames. The two misses occurred near the frontal view.
-- Test suite: 188 tests passed.
+- Test suite: 198 tests passed (188 original, 10 for the follow-up).
 
 Main visual outputs are `outputs/side_view_22_5.png`,
 `outputs/side_view_22_5_image_faithful.png` and `outputs/camera_return.gif`.
+
+## Follow-up: Parts B and D without trusting the motion
+
+As a follow-up, Parts B and D were redone so that the camera never trusts its
+own moves. The true camera position is hidden inside a simulator, every move is
+executed with errors the navigator is not told about, and after every move the
+position is worked out again from the image. Code: `src/aulecv/closed_loop.py`;
+notebooks `05` and `06`; tests `tests/test_closed_loop.py`.
+
+**The problem.** Re-localising at every step of the original Part B route shows that
+28 of its 65 views cannot be located on their own: they contain only horizontal
+lines, so they fix the height but not the left-right position. Trusting the moves
+hid this, and with motion errors it fails: in 40 random runs with 50-150% motion
+errors, trusting the motion reached the marker in only 22% of runs, and in 31
+runs it reported success while the marker was not in view.
+
+**Part B, subtask A (with zoom).** After every move the view is template-matched at
+the current zoom. A view that cannot be placed triggers a zoom out (1, 1.5, 2, 3x);
+the camera travels at the zoom that gave a fix, then zooms back in and confirms
+arrival from a native-zoom fix.
+
+**Part B, subtask B (no zoom).** A localisability map is computed once: for every
+grid position, can a view there be located? The route is the cheapest path over
+that map. It prefers views far from unlocatable ones, and only crosses unlocatable
+views where separate areas must be joined. After every move the view is
+re-localised and the route re-planned. If a promised view turns out unplaceable,
+the move is undone once and that spot avoided.
+
+| 40 runs, 200 x 170 view | Reached the marker | Wrongly claimed success | Worst final error |
+|---|---|---|---|
+| Trust the movement | 22% | 31 | 149 px |
+| Re-localise only | 100% | 0 | 0.57 px |
+| A: with zoom | 100% | 0 | 0.57 px |
+| B: no zoom, planned route | 100% | 0 | 0.62 px |
+
+With a smaller 120 x 100 view (only 45% of positions locatable), every
+re-localising method still reached the marker in 30 of 30 runs. Re-localising alone
+needed 355 views it could not place, zoom needed 45, and the planned route needed 223
+(mostly planned crossings) with 2 undos. Zoom used the fewest moves (median 22).
+
+**Part D.** The pose is estimated from each image: four-corner PnP for a first guess,
+then dense alignment of the whole image to the reference (ECC). That gives the
+reference-to-image homography, from which the pose is read out. The controller then
+aims for the orbit point up to 2.5 degrees closer to the front, at 100 cm, looking
+at the centre, and sends the move needed from the estimated pose. Moves are executed
+with 70-120% of the commanded translation, translation and rotation noise, and image
+noise.
+
+- The dense estimate stays within 0.011 degrees of the truth at every angle tested.
+  Corner PnP is off by up to 2.6 degrees near the front.
+- In 8 of 8 runs the dense loop converged (median 12.5 iterations), ending within
+  0.042 degrees of the front and 0.085 cm of 100 cm.
+- With corner PnP alone it converged in 0 of 8 runs: near the front its estimate
+  is too noisy, so it keeps chasing errors that are not there.
+
+**Limits of the follow-up.** The camera and scene are simulated with the same flat
+target model the estimators use, so dense alignment sees near-ideal images apart from
+the added noise. On real images, lighting changes and reflections break the
+brightness assumption ECC relies on, and the lens must be calibrated first. In Part
+B the zoom level is assumed to be read back from the lens, and moves are translations
+parallel to the target.
 
 ## Assumptions and limitations
 

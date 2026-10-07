@@ -1,0 +1,281 @@
+view,method,reached,claimed_but_wrong,moves,lost_views,zoom_changes,undos,final_error_px
+200x170,trust the movement,True,False,4,0,0,0,7.516086342358203
+200x170,re-localise only,True,False,3,0,0,0,0.04329676673214132
+200x170,A: with zoom,True,False,3,0,0,0,0.04329676673214132
+200x170,"B: no zoom, planned route",True,False,3,0,0,0,0.27712659221684066
+200x170,trust the movement,False,True,11,0,0,0,11.724409253721312
+200x170,re-localise only,True,False,15,0,0,0,0.1623602286800554
+200x170,A: with zoom,True,False,15,0,0,0,0.1623602286800554
+200x170,"B: no zoom, planned route",True,False,12,0,0,0,0.4151482720270967
+200x170,trust the movement,True,False,11,0,0,0,27.296587512907763
+200x170,re-localise only,True,False,9,0,0,0,0.39674161540935327
+200x170,A: with zoom,True,False,9,0,0,0,0.39674161540935327
+200x170,"B: no zoom, planned route",True,False,11,0,0,0,0.5453291209853517
+200x170,trust the movement,False,True,32,0,0,0,149.25554262368462
+200x170,re-localise only,True,False,77,0,0,0,0.27899336671811836
+200x170,A: with zoom,True,False,77,0,0,0,0.27899336671811836
+200x170,"B: no zoom, planned route",True,False,66,0,0,0,0.2869793695992754
+200x170,trust the movement,False,True,24,5,0,0,32.09886496800859
+200x170,re-localise only,True,False,25,5,0,0,0.46438921539783384
+200x170,A: with zoom,True,False,31,1,2,0,0.5186495882947635
+200x170,"B: no zoom, planned route",True,False,26,5,0,0,0.2825526415923775
+200x170,trust the movement,False,True,25,0,0,0,50.71830175474351
+200x170,re-localise only,True,False,25,0,0,0,0.20990320038444785
+200x170,A: with zoom,True,False,25,0,0,0,0.20990320038444785
+200x170,"B: no zoom, planned route",True,False,25,0,0,0,0.26502092145655626
+200x170,trust the movement,False,True,6,0,0,0,8.217298502515453
+200x170,re-localise only,True,False,6,0,0,0,0.5741319019337239
+200x170,A: with zoom,True,False,6,0,0,0,0.5741319019337239
+200x170,"B: no zoom, planned route",True,False,6,0,0,0,0.568538799225325
+200x170,trust the movement,False,True,24,0,0,0,49.46531987307807
+200x170,re-localise only,True,False,23,0,0,0,0.39962495572187146
+200x170,A: with zoom,True,False,23,0,0,0,0.39962495572187146
+200x170,"B: no zoom, planned route",True,False,24,0,0,0,0.17299495764616038
+200x170,trust the movement,False,True,4,0,0,0,7.8865589183153935
+200x170,re-localise only,True,False,5,0,0,0,0.41916169140552073
+200x170,A: with zoom,True,False,5,0,0,0,0.41916169140552073
+200x170,"B: no zoom, planned route",True,False,4,0,0,0,0.4990112774581702
+200x170,trust the movement,False,True,21,0,0,0,88.06454212548448
+200x170,re-localise only,True,False,31,0,0,0,0.3360816018802211
+200x170,A: with zoom,True,False,31,0,0,0,0.3360816018802211
+200x170,"B: no zoom, planned route",True,False,37,0,0,0,0.23177236908547025
+200x170,trust the movement,False,True,27,0,0,0,116.88188859175685
+200x170,re-localise only,True,False,52,0,0,0,0.11751652571880468
+200x170,A: with zoom,True,False,52,0,0,0,0.11751652571880468
+200x170,"B: no zoom, planned route",True,False,50,0,0,0,0.4326931395058509
+200x170,trust the movement,False,True,24,0,0,0,52.59388802669718
+200x170,re-localise only,True,False,35,0,0,0,0.5439543856133282
+200x170,A: with zoom,True,False,35,1,2,0,0.5567645793954696
+200x170,"B: no zoom, planned route",True,False,35,0,0,0,0.543201983956414
+200x170,trust the movement,False,True,11,0,0,0,45.74672078570128
+200x170,re-localise only,True,False,9,0,0,0,0.41836300377990177
+200x170,A: with zoom,True,False,9,0,0,0,0.41836300377990177
+200x170,"B: no zoom, planned route",True,False,11,0,0,0,0.36125875638509436
+200x170,trust the movement,False,True,6,0,0,0,17.634239840028137
+200x170,re-localise only,True,False,6,0,0,0,0.48720898863122036
+200x170,A: with zoom,True,False,6,0,0,0,0.48720898863122036
+200x170,"B: no zoom, planned route",True,False,6,0,0,0,0.39221552974927637
+200x170,trust the movement,True,False,15,0,0,0,41.57764714549015
+200x170,re-localise only,True,False,19,0,0,0,0.4562892168134157
+200x170,A: with zoom,True,False,19,0,0,0,0.4562892168134157
+200x170,"B: no zoom, planned route",True,False,16,0,0,0,0.5153007079408202
+200x170,trust the movement,False,True,22,0,0,0,71.86541678012715
+200x170,re-localise only,True,False,20,0,0,0,0.21265880863333583
+200x170,A: with zoom,True,False,20,0,0,0,0.21265880863333583
+200x170,"B: no zoom, planned route",True,False,20,0,0,0,0.37294580686609063
+200x170,trust the movement,True,False,17,1,0,0,32.32796036283601
+200x170,re-localise only,True,False,14,1,0,0,0.07960048634569948
+200x170,A: with zoom,True,False,15,1,2,0,0.3580245372746322
+200x170,"B: no zoom, planned route",True,False,16,1,0,0,0.3183288538177765
+200x170,trust the movement,False,True,33,0,0,0,116.47960598176009
+200x170,re-localise only,True,False,63,0,0,0,0.5108341238578353
+200x170,A: with zoom,True,False,63,0,0,0,0.5108341238578353
+200x170,"B: no zoom, planned route",True,False,53,0,0,0,0.41370579213208925
+200x170,trust the movement,False,True,6,0,0,0,7.147403742764572
+200x170,re-localise only,True,False,7,0,0,0,0.41005735042176483
+200x170,A: with zoom,True,False,7,0,0,0,0.41005735042176483
+200x170,"B: no zoom, planned route",True,False,6,0,0,0,0.4607019292398734
+200x170,trust the movement,False,True,22,0,0,0,90.29651102494323
+200x170,re-localise only,True,False,20,0,0,0,0.5143243168493419
+200x170,A: with zoom,True,False,20,0,0,0,0.5143243168493419
+200x170,"B: no zoom, planned route",True,False,18,0,0,0,0.6199628790317632
+200x170,trust the movement,False,True,25,0,0,0,59.451548774288995
+200x170,re-localise only,True,False,35,0,0,0,0.48688790350747607
+200x170,A: with zoom,True,False,35,0,0,0,0.48688790350747607
+200x170,"B: no zoom, planned route",True,False,36,0,0,0,0.48014060915962087
+200x170,trust the movement,True,False,9,0,0,0,29.534441351104096
+200x170,re-localise only,True,False,8,0,0,0,0.35735581108731607
+200x170,A: with zoom,True,False,8,0,0,0,0.35735581108731607
+200x170,"B: no zoom, planned route",True,False,7,0,0,0,0.46430423379634833
+200x170,trust the movement,False,True,4,0,0,0,20.957179858111974
+200x170,re-localise only,True,False,6,0,0,0,0.3757286110157384
+200x170,A: with zoom,True,False,6,0,0,0,0.3757286110157384
+200x170,"B: no zoom, planned route",True,False,7,0,0,0,0.36544994782294576
+200x170,trust the movement,True,False,0,0,0,0,0.24619257294043045
+200x170,re-localise only,True,False,0,0,0,0,0.24619257294043045
+200x170,A: with zoom,True,False,0,0,0,0,0.24619257294043045
+200x170,"B: no zoom, planned route",True,False,0,0,0,0,0.24619257294043045
+200x170,trust the movement,False,True,10,0,0,0,40.89569700969292
+200x170,re-localise only,True,False,14,0,0,0,0.31575000161550143
+200x170,A: with zoom,True,False,14,0,0,0,0.31575000161550143
+200x170,"B: no zoom, planned route",True,False,17,0,0,0,0.2893610331216215
+200x170,trust the movement,False,True,28,0,0,0,111.21040891686323
+200x170,re-localise only,True,False,17,0,0,0,0.47336023291120377
+200x170,A: with zoom,True,False,17,1,2,0,0.47336023291120377
+200x170,"B: no zoom, planned route",True,False,20,0,0,0,0.4156724658586943
+200x170,trust the movement,False,True,22,0,0,0,41.50776474343037
+200x170,re-localise only,True,False,25,0,0,0,0.39349244723425697
+200x170,A: with zoom,True,False,25,0,0,0,0.39349244723425697
+200x170,"B: no zoom, planned route",True,False,28,0,0,0,0.24593881365334674
+200x170,trust the movement,False,True,12,0,0,0,41.728075827741165
+200x170,re-localise only,True,False,19,0,0,0,0.46055573315776244
+200x170,A: with zoom,True,False,19,0,0,0,0.46055573315776244
+200x170,"B: no zoom, planned route",True,False,17,0,0,0,0.2795608379459193
+200x170,trust the movement,False,True,26,0,0,0,122.61912830496229
+200x170,re-localise only,True,False,20,0,0,0,0.21377565341789173
+200x170,A: with zoom,True,False,20,0,0,0,0.21377565341789173
+200x170,"B: no zoom, planned route",True,False,20,0,0,0,0.4149383343565174
+200x170,trust the movement,False,True,37,1,0,0,117.70660702778925
+200x170,re-localise only,True,False,74,1,0,0,0.28065228473571174
+200x170,A: with zoom,True,False,62,1,2,0,0.1314238637021372
+200x170,"B: no zoom, planned route",True,False,59,1,0,0,0.404578603675288
+200x170,trust the movement,True,False,4,0,0,0,20.397103660128508
+200x170,re-localise only,True,False,2,0,0,0,0.16267877528173907
+200x170,A: with zoom,True,False,2,0,0,0,0.16267877528173907
+200x170,"B: no zoom, planned route",True,False,2,0,0,0,0.4076304077374062
+200x170,trust the movement,False,True,17,0,0,0,92.85485462744087
+200x170,re-localise only,True,False,28,0,0,0,0.5357274263755657
+200x170,A: with zoom,True,False,28,0,0,0,0.5357274263755657
+200x170,"B: no zoom, planned route",True,False,30,0,0,0,0.0457981467364796
+200x170,trust the movement,False,True,9,0,0,0,25.816335392647524
+200x170,re-localise only,True,False,16,0,0,0,0.3818869607047297
+200x170,A: with zoom,True,False,16,0,0,0,0.3818869607047297
+200x170,"B: no zoom, planned route",True,False,13,0,0,0,0.40117133877907124
+200x170,trust the movement,False,True,28,5,0,0,132.63739426577555
+200x170,re-localise only,True,False,86,5,0,0,0.14926766288087587
+200x170,A: with zoom,True,False,115,1,2,0,0.36728765208453895
+200x170,"B: no zoom, planned route",True,False,76,5,0,0,0.5077352596373956
+200x170,trust the movement,False,True,11,0,0,0,49.88609281003228
+200x170,re-localise only,True,False,18,0,0,0,0.3492954491858469
+200x170,A: with zoom,True,False,18,0,0,0,0.3492954491858469
+200x170,"B: no zoom, planned route",True,False,17,0,0,0,0.45609471663527185
+200x170,trust the movement,True,False,18,0,0,0,70.24334897037212
+200x170,re-localise only,True,False,13,0,0,0,0.4134657194027676
+200x170,A: with zoom,True,False,13,0,0,0,0.4134657194027676
+200x170,"B: no zoom, planned route",True,False,17,0,0,0,0.23256643023216822
+200x170,trust the movement,False,True,17,0,0,0,111.81717322383875
+200x170,re-localise only,True,False,10,0,0,0,0.48419317886796326
+200x170,A: with zoom,True,False,10,0,0,0,0.48419317886796326
+200x170,"B: no zoom, planned route",True,False,13,0,0,0,0.40539620569905493
+200x170,trust the movement,False,True,13,0,0,0,12.466219681851754
+200x170,re-localise only,True,False,13,0,0,0,0.39157306407743847
+200x170,A: with zoom,True,False,13,0,0,0,0.39157306407743847
+200x170,"B: no zoom, planned route",True,False,15,0,0,0,0.40228548149708393
+200x170,trust the movement,True,False,9,0,0,0,21.62365982861887
+200x170,re-localise only,True,False,9,0,0,0,0.34942928982866756
+200x170,A: with zoom,True,False,9,0,0,0,0.34942928982866756
+200x170,"B: no zoom, planned route",True,False,8,0,0,0,0.35843249283396905
+200x170,trust the movement,False,True,25,0,0,0,62.38844022781616
+200x170,re-localise only,True,False,36,0,0,0,0.30777249577055676
+200x170,A: with zoom,True,False,36,0,0,0,0.30777249577055676
+200x170,"B: no zoom, planned route",True,False,28,0,0,0,0.07365423175960617
+120x100,trust the movement,False,True,21,10,0,0,44.03440098815047
+120x100,re-localise only,True,False,35,21,0,0,0.3182486764114835
+120x100,A: with zoom,True,False,20,3,4,0,0.4682129962870244
+120x100,"B: no zoom, planned route",True,False,35,16,0,0,0.24601596346190796
+120x100,trust the movement,True,False,5,0,0,0,0.7967300661590593
+120x100,re-localise only,True,False,4,0,0,0,0.06893887752794323
+120x100,A: with zoom,True,False,4,0,0,0,0.06893887752794323
+120x100,"B: no zoom, planned route",True,False,4,0,0,0,0.09185257425823687
+120x100,trust the movement,False,True,39,16,0,0,108.92192355167298
+120x100,re-localise only,True,False,101,37,0,0,0.49704769761893974
+120x100,A: with zoom,True,False,58,3,4,0,0.48916616168366034
+120x100,"B: no zoom, planned route",True,False,89,24,0,0,0.41497556613763764
+120x100,trust the movement,False,True,26,1,0,0,89.4470802036508
+120x100,re-localise only,True,False,55,17,0,0,0.39567761866081325
+120x100,A: with zoom,True,False,30,1,2,0,0.27826410271833785
+120x100,"B: no zoom, planned route",True,False,54,6,0,0,0.425277112524072
+120x100,trust the movement,False,True,5,0,0,0,8.027118945596266
+120x100,re-localise only,True,False,7,0,0,0,0.20869469526919332
+120x100,A: with zoom,True,False,7,0,0,0,0.20869469526919332
+120x100,"B: no zoom, planned route",True,False,6,0,0,0,0.4811279959195546
+120x100,trust the movement,True,False,3,0,0,0,3.56100194546318
+120x100,re-localise only,True,False,2,0,0,0,0.45359470723530443
+120x100,A: with zoom,True,False,2,0,0,0,0.45359470723530443
+120x100,"B: no zoom, planned route",True,False,2,0,0,0,0.5429684865317954
+120x100,trust the movement,False,True,20,10,0,0,30.546847998751502
+120x100,re-localise only,True,False,38,21,0,0,0.07740032929492006
+120x100,A: with zoom,True,False,15,3,4,0,0.5784444709525381
+120x100,"B: no zoom, planned route",True,False,26,14,0,0,0.36169169328854756
+120x100,trust the movement,True,False,11,0,0,0,41.107376750528225
+120x100,re-localise only,True,False,15,3,0,0,0.49536025152768687
+120x100,A: with zoom,True,False,8,1,2,0,0.36916975091617693
+120x100,"B: no zoom, planned route",True,False,9,2,0,0,0.48129583816075105
+120x100,trust the movement,False,True,20,0,0,0,38.26238151733302
+120x100,re-localise only,True,False,17,7,0,0,0.4400726335895163
+120x100,A: with zoom,True,False,21,3,4,0,0.2652444747579565
+120x100,"B: no zoom, planned route",True,False,28,4,0,0,0.38103852890598233
+120x100,trust the movement,True,False,19,6,0,0,20.73798140294004
+120x100,re-localise only,True,False,37,20,0,0,0.11381806516359608
+120x100,A: with zoom,True,False,23,1,2,0,0.587238796543947
+120x100,"B: no zoom, planned route",True,False,21,10,0,0,0.20215599456816516
+120x100,trust the movement,False,True,4,0,0,0,10.732369316545604
+120x100,re-localise only,True,False,7,0,0,0,0.21801031713222654
+120x100,A: with zoom,True,False,7,0,0,0,0.21801031713222654
+120x100,"B: no zoom, planned route",True,False,6,0,0,0,0.27123456970995496
+120x100,trust the movement,True,False,0,0,0,0,0.46918025173615624
+120x100,re-localise only,True,False,0,0,0,0,0.46918025173615624
+120x100,A: with zoom,True,False,0,0,0,0,0.46918025173615624
+120x100,"B: no zoom, planned route",True,False,0,0,0,0,0.46918025173615624
+120x100,trust the movement,True,False,3,0,0,0,14.611687888903738
+120x100,re-localise only,True,False,2,0,0,0,0.4516582418176761
+120x100,A: with zoom,True,False,2,0,0,0,0.4516582418176761
+120x100,"B: no zoom, planned route",True,False,2,0,0,0,0.5293188532635191
+120x100,trust the movement,False,True,26,6,0,0,46.62666042351313
+120x100,re-localise only,True,False,68,17,0,0,0.2778189926239597
+120x100,A: with zoom,True,False,50,3,4,0,0.044296519970481875
+120x100,"B: no zoom, planned route",True,False,44,14,0,0,0.40729973995352503
+120x100,trust the movement,False,True,32,4,0,0,26.94847990509129
+120x100,re-localise only,True,False,55,21,0,0,0.06551500613239128
+120x100,A: with zoom,True,False,23,2,3,0,0.6114163417706854
+120x100,"B: no zoom, planned route",True,False,37,10,0,0,0.41689958682198935
+120x100,trust the movement,False,True,20,5,0,0,28.720648667877835
+120x100,re-localise only,True,False,64,20,0,0,0.34636249895065735
+120x100,A: with zoom,True,False,26,1,2,0,0.3280857188516377
+120x100,"B: no zoom, planned route",True,False,21,7,0,0,0.5550203942360523
+120x100,trust the movement,True,False,20,8,0,0,47.176161665233074
+120x100,re-localise only,True,False,53,19,0,0,0.3869950988572159
+120x100,A: with zoom,True,False,24,2,3,0,0.5071367480033718
+120x100,"B: no zoom, planned route",True,False,18,10,0,0,0.5147933656813756
+120x100,trust the movement,True,False,0,0,0,0,0.3663426590643202
+120x100,re-localise only,True,False,0,0,0,0,0.3663426590643202
+120x100,A: with zoom,True,False,0,0,0,0,0.3663426590643202
+120x100,"B: no zoom, planned route",True,False,0,0,0,0,0.3663426590643202
+120x100,trust the movement,False,True,26,0,0,0,37.70951704494731
+120x100,re-localise only,True,False,59,17,0,0,0.5306642870772801
+120x100,A: with zoom,True,False,26,2,3,0,0.27224417087056185
+120x100,"B: no zoom, planned route",True,False,42,6,0,1,0.4715175539821526
+120x100,trust the movement,True,False,17,2,0,0,4.093052785109994
+120x100,re-localise only,True,False,9,5,0,0,0.3971113419560249
+120x100,A: with zoom,True,False,7,1,2,0,0.33342344200871904
+120x100,"B: no zoom, planned route",True,False,28,8,0,0,0.24268153996891945
+120x100,trust the movement,False,True,15,1,0,0,26.297333993784807
+120x100,re-localise only,True,False,11,3,0,0,0.24939667372593344
+120x100,A: with zoom,True,False,8,1,2,0,0.17244363010757938
+120x100,"B: no zoom, planned route",True,False,19,4,0,0,0.2995793084679211
+120x100,trust the movement,False,True,35,1,0,0,76.30757043667396
+120x100,re-localise only,True,False,44,19,0,0,0.31997909205453867
+120x100,A: with zoom,True,False,38,2,3,0,0.6647096314954404
+120x100,"B: no zoom, planned route",True,False,46,9,0,0,0.20584676040196276
+120x100,trust the movement,False,True,27,7,0,0,82.5190299797878
+120x100,re-localise only,True,False,65,21,0,0,0.48473098618793886
+120x100,A: with zoom,True,False,53,3,4,0,0.3947083890038483
+120x100,"B: no zoom, planned route",True,False,49,17,0,0,0.4390058876748653
+120x100,trust the movement,True,False,30,0,0,0,103.75887763353529
+120x100,re-localise only,True,False,22,4,0,0,0.5350021004319698
+120x100,A: with zoom,True,False,23,2,3,0,0.42951476221091606
+120x100,"B: no zoom, planned route",True,False,31,4,0,1,0.4065016390043882
+120x100,trust the movement,True,False,3,0,0,0,7.138845436067056
+120x100,re-localise only,True,False,3,0,0,0,0.35291226974024587
+120x100,A: with zoom,True,False,3,0,0,0,0.35291226974024587
+120x100,"B: no zoom, planned route",True,False,2,0,0,0,0.035244738108512606
+120x100,trust the movement,True,False,23,6,0,0,31.49453302676295
+120x100,re-localise only,True,False,43,19,0,0,0.3067828821415797
+120x100,A: with zoom,True,False,23,2,3,0,0.4054773348190936
+120x100,"B: no zoom, planned route",True,False,24,10,0,0,0.5521712919087172
+120x100,trust the movement,False,True,31,12,0,0,43.891175565802676
+120x100,re-localise only,True,False,30,13,0,0,0.31105363279681314
+120x100,A: with zoom,True,False,25,2,3,0,0.5283458693988328
+120x100,"B: no zoom, planned route",True,False,38,15,0,0,0.4841048765934749
+120x100,trust the movement,False,True,36,6,0,0,139.54374597353274
+120x100,re-localise only,True,False,141,39,0,0,0.5132335666017686
+120x100,A: with zoom,True,False,122,2,3,0,0.3652708574478553
+120x100,"B: no zoom, planned route",True,False,85,20,0,0,0.38836875980756397
+120x100,trust the movement,False,True,14,1,0,0,58.77197831604409
+120x100,re-localise only,True,False,22,7,0,0,0.29942732112989795
+120x100,A: with zoom,True,False,21,3,4,0,0.2241673603054984
+120x100,"B: no zoom, planned route",True,False,26,6,0,0,0.4487492197912058
+120x100,trust the movement,False,True,19,0,0,0,97.6424943099876
+120x100,re-localise only,True,False,39,5,0,0,0.4417173630531077
+120x100,A: with zoom,True,False,34,2,3,0,0.3749475446757719
+120x100,"B: no zoom, planned route",True,False,48,7,0,0,0.37104020265257726
