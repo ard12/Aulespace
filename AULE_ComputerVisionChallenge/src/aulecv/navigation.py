@@ -70,6 +70,7 @@ class CropLocalization:
     uncertainty_px: Tuple[float, float] = (float("nan"), float("nan"))
     crop_std: float = float("nan")
     reasons: List[str] = field(default_factory=list)
+    candidate_bounds_px: Optional[Tuple[int, int, int, int]] = None
 
     @property
     def window(self) -> Optional[Tuple[int, int, int, int]]:
@@ -251,6 +252,15 @@ def localize_crop(crop: np.ndarray,
                        "(ratio {:.3f}); the crop is repeated in the image"
                        .format(second, peak, ratio))
 
+    # All plausible competitors, not just the component containing the peak.
+    # Separate identical lines must prevent a spurious single-axis fix too.
+    bounds = None
+    if peak >= min_score:
+        # Keep the peak in the candidate set even when a caller explicitly
+        # permits negative correlation scores via min_score.
+        threshold = min(peak, max(min_score, C.MATCH_SECOND_PEAK_RATIO * peak))
+        cy, cx = np.nonzero(res >= threshold)
+        bounds = (int(cx.min()), int(cy.min()), int(cx.max()), int(cy.max()))
     return CropLocalization(
         status=status,
         x=px,
@@ -263,6 +273,7 @@ def localize_crop(crop: np.ndarray,
         uncertainty_px=(0.5 * (ext_x - 1), 0.5 * (ext_y - 1)),
         crop_std=std,
         reasons=reasons or ["unique, sharply-peaked match"],
+        candidate_bounds_px=bounds,
     )
 
 

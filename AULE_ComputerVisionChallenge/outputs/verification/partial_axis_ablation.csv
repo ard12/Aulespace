@@ -1,0 +1,49 @@
+view,run,start_axis,method,status,reached,false_arrival,moves,blind_views,partial_views,worst_observed_axis_error_px,final_error_px
+"(200, 170)",0,0,all or nothing,visible,True,False,20,2,0,0.0,0.43856088567850854
+"(200, 170)",0,0,partial axes,visible,True,False,18,0,5,0.47908181135619543,0.3976328690393152
+"(200, 170)",1,1,all or nothing,visible,True,False,18,1,0,0.0,0.03701126557134275
+"(200, 170)",1,1,partial axes,visible,True,False,11,0,3,0.4683222398647757,0.5682080805796471
+"(200, 170)",2,0,all or nothing,visible,True,False,15,1,0,0.0,0.5391880472443006
+"(200, 170)",2,0,partial axes,visible,True,False,15,0,2,0.5,0.5352705564817404
+"(200, 170)",3,1,all or nothing,visible,True,False,31,4,0,0.0,0.5753151329306829
+"(200, 170)",3,1,partial axes,visible,True,False,26,0,1,0.0,0.3976877449776163
+"(200, 170)",4,0,all or nothing,visible,True,False,9,1,0,0.0,0.5908033489589528
+"(200, 170)",4,0,partial axes,visible,True,False,8,0,2,0.4562011799084047,0.5212979466387977
+"(200, 170)",5,1,all or nothing,visible,True,False,29,4,0,0.0,0.41593113149813643
+"(200, 170)",5,1,partial axes,visible,True,False,22,0,1,0.0,0.14767603949464336
+"(200, 170)",6,0,all or nothing,visible,True,False,26,2,0,0.0,0.42692349110600275
+"(200, 170)",6,0,partial axes,visible,True,False,22,0,9,0.49698157506065854,0.49639811168624365
+"(200, 170)",7,1,all or nothing,visible,True,False,28,1,0,0.0,0.1732620945295302
+"(200, 170)",7,1,partial axes,visible,True,False,30,0,6,0.44276933183766687,0.560693443876751
+"(200, 170)",8,0,all or nothing,visible,True,False,29,2,0,0.0,0.22719927240670837
+"(200, 170)",8,0,partial axes,visible,True,False,28,0,5,0.7825772920067493,0.02761749872354169
+"(200, 170)",9,1,all or nothing,visible,True,False,14,5,0,0.0,0.369777824947093
+"(200, 170)",9,1,partial axes,visible,True,False,18,0,5,0.33076203928209225,0.2817747000893473
+"(200, 170)",10,0,all or nothing,visible,True,False,18,3,0,0.0,0.3210270778498879
+"(200, 170)",10,0,partial axes,visible,True,False,18,0,1,0.0,0.36025085139843527
+"(200, 170)",11,1,all or nothing,visible,True,False,17,4,0,0.0,0.21148604367050658
+"(200, 170)",11,1,partial axes,visible,True,False,17,0,4,0.30857587387703234,0.4883581102006101
+"(120, 100)",0,0,all or nothing,visible,True,False,32,6,0,0.0,0.21453205575569362
+"(120, 100)",0,0,partial axes,visible,True,False,38,3,9,0.36780357724182977,0.22211321960883668
+"(120, 100)",1,1,all or nothing,visible,True,False,15,8,0,0.0,0.3913311722335738
+"(120, 100)",1,1,partial axes,visible,True,False,30,5,8,0.5,0.6017577456619958
+"(120, 100)",2,0,all or nothing,visible,True,False,20,8,0,0.0,0.4210727946656321
+"(120, 100)",2,0,partial axes,visible,True,False,27,4,10,0.6165848485769629,0.4388170334982296
+"(120, 100)",3,1,all or nothing,visible,True,False,16,6,0,0.0,0.16048663311391376
+"(120, 100)",3,1,partial axes,visible,True,False,24,1,8,0.6715640350593048,0.10370979815345974
+"(120, 100)",4,0,all or nothing,visible,True,False,16,5,0,0.0,0.5381985174023776
+"(120, 100)",4,0,partial axes,visible,True,False,12,0,10,0.4283791253025697,0.4995697685359922
+"(120, 100)",5,1,all or nothing,visible,True,False,17,8,0,0.0,0.48362478035098044
+"(120, 100)",5,1,partial axes,visible,True,False,29,4,11,0.5,0.1266183132208823
+"(120, 100)",6,0,all or nothing,visible,True,False,27,6,0,0.0,0.2340218747907613
+"(120, 100)",6,0,partial axes,visible,True,False,33,4,11,0.5143786915913324,0.34523049812270096
+"(120, 100)",7,1,all or nothing,visible,True,False,18,9,0,0.0,0.6168909402140923
+"(120, 100)",7,1,partial axes,visible,True,False,20,7,2,0.3645883208440637,0.25671340078506494
+"(120, 100)",8,0,all or nothing,visible,True,False,4,1,0,0.0,0.3880477723909113
+"(120, 100)",8,0,partial axes,visible,True,False,8,0,5,0.2530391003255801,0.20453700535706637
+"(120, 100)",9,1,all or nothing,visible,True,False,30,12,0,0.0,0.3116945239098627
+"(120, 100)",9,1,partial axes,visible,True,False,27,5,5,0.7517966785287058,0.40422495403115694
+"(120, 100)",10,0,all or nothing,visible,True,False,16,7,0,0.0,0.4223772412761574
+"(120, 100)",10,0,partial axes,visible,True,False,18,1,3,0.274389569265054,0.5737535753188876
+"(120, 100)",11,1,all or nothing,visible,True,False,25,7,0,0.0,0.5288814591217983
+"(120, 100)",11,1,partial axes,visible,True,False,22,6,9,0.7253099189652517,0.40445453655676916

@@ -1,8 +1,9 @@
 """Part D: how the stop tolerance relates to the camera's per-move error.
 
-The controller cannot land closer to the front than its own moves allow, so with
-a tolerance near the per-move noise it may run out of iterations. It must never
-claim convergence it has not reached. Writes outputs/verification/return_noise_sweep.csv.
+Noise makes landing inside tight tolerances less likely within a finite budget.
+The controller stops on estimates; report true errors separately at both the
+requested tolerance and an explicitly looser 2x evaluation envelope.
+Writes outputs/verification/return_noise_sweep.csv.
 """
 import sys, time
 from pathlib import Path
@@ -29,11 +30,17 @@ for noise in (0.05, 0.07, 0.10):
             r = cl.return_to_front_closed_loop(c, est, tol_deg=tol, tol_cm=tol)
             rows.append(dict(noise=noise, tol=tol, run=k, status=r.status, iterations=r.iterations,
                              pos_err_cm=float(np.linalg.norm(c.true_center - [0, 0, -100])),
-                             pointing_deg=c.true_pointing_error_deg, theta_deg=abs(c.true_theta_deg)))
+                             pointing_deg=c.true_pointing_error_deg, theta_deg=abs(c.true_theta_deg),
+                             orientation_deg=c.true_orientation_error_deg))
     print("noise", noise, "done", round(time.perf_counter() - t0), flush=True)
 d = pd.DataFrame(rows)
-d["false_success"] = (d.status == "converged") & ((d.pos_err_cm > 2 * d.tol) | (d.pointing_deg > 2 * d.tol))
+for scale, column in ((1, "outside_true_tolerance"), (2, "outside_2x_envelope")):
+    d[column] = (d.status == "converged") & ((d.pos_err_cm > scale * d.tol)
+        | (d.pointing_deg > scale * d.tol) | (d.orientation_deg > scale * d.tol)
+        | (d.theta_deg > scale * d.tol))
 d.to_csv(ROOT / "outputs" / "verification" / "return_noise_sweep.csv", index=False)
 print(d.groupby(["noise", "tol"]).agg(converged=("status", lambda s: (s == "converged").sum()),
       runs=("status", "size"), median_it=("iterations", "median"),
-      worst_pos=("pos_err_cm", "max"), worst_point=("pointing_deg", "max"), false_success=("false_success", "sum")).round(3).to_string())
+      worst_pos=("pos_err_cm", "max"), worst_point=("pointing_deg", "max"),
+      outside_true_tolerance=("outside_true_tolerance", "sum"),
+      outside_2x_envelope=("outside_2x_envelope", "sum")).round(3).to_string())

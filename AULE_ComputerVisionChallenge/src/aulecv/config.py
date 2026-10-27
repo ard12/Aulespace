@@ -193,6 +193,14 @@ MATCH_NMS_FRAC = 0.5
 #: localisation ambiguous.
 MATCH_SECOND_PEAK_RATIO = 0.92
 
+# Partial-axis localisation uses ALL competing matches above this same ratio.
+# A constrained axis spans at most four pixels (about +/-2); the other must
+# span at least twelve. These are conservative image-space heuristics.
+PARTIAL_AXIS_MAX_SPAN_PX = 4.0
+PARTIAL_AXIS_MIN_SCORE = 0.90
+PARTIAL_AXIS_MIN_FREE_SPAN_PX = 12.0
+LOCALIZABILITY_PARTIAL_STEP_COST = 6.0
+
 #: Camera step size, as a fraction of the crop's *smaller* side.
 NAV_STEP_FRAC = 0.05
 

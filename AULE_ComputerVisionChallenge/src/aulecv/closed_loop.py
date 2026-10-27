@@ -194,12 +194,24 @@ class PanCamera:
 class ViewFix:
     """Where a view came from, judged from its pixels alone."""
 
-    status: str                      #: 'ok' | 'ambiguous' | 'featureless'
+    status: str                      #: 'ok' | 'x_only' | 'y_only' | 'ambiguous' | 'featureless'
     center: Optional[np.ndarray]     #: window centre in reference pixels (None if not located)
     zoom: float
     score: float
     uncertainty_px: float
     reasons: List[str] = field(default_factory=list)
+    axis_bounds: Optional[np.ndarray] = None  # [[x_min, x_max], [y_min, y_max]], reference pixels
+
+    @property
+    def observed_axis(self) -> Optional[int]:
+        return {"x_only": 0, "y_only": 1}.get(self.status)
+
+    def coordinate(self, axis: int) -> Optional[float]:
+        if self.status == "ok" and self.center is not None:
+            return float(self.center[axis])
+        if self.observed_axis == axis and self.axis_bounds is not None:
+            return float(self.axis_bounds[axis].mean())
+        return None
 
 
 class Localizer:
@@ -211,10 +223,12 @@ class Localizer:
     remove that assumption at a higher cost.
     """
 
-    def __init__(self, reference: np.ndarray, view_size: Tuple[int, int], pad: int = 0):
+    def __init__(self, reference: np.ndarray, view_size: Tuple[int, int], pad: int = 0,
+                 partial_axes: bool = True):
         self.w, self.h = int(view_size[0]), int(view_size[1])
         self.pad = int(pad)
         self.world = _padded_world(reference, self.pad)
+        self.partial_axes = bool(partial_axes)
         self._scaled: Dict[float, np.ndarray] = {}
 
     def _world_at(self, zoom: float) -> np.ndarray:
@@ -241,7 +255,30 @@ class Localizer:
         center = np.array([(loc.x + self.w / 2.0) * kx - self.pad,
                            (loc.y + self.h / 2.0) * ky - self.pad])
         unc = zoom * (1.0 + max(loc.uncertainty_px)) if np.all(np.isfinite(loc.uncertainty_px)) else float("inf")
-        return ViewFix(loc.status, center, zoom, float(loc.score), float(unc), list(loc.reasons))
+        bounds = None
+        if loc.candidate_bounds_px is not None:
+            x0, y0, x1, y1 = loc.candidate_bounds_px
+            bounds = np.array([[(x0 + self.w / 2) * kx - self.pad,
+                                (x1 + self.w / 2) * kx - self.pad],
+                               [(y0 + self.h / 2) * ky - self.pad,
+                                (y1 + self.h / 2) * ky - self.pad]])
+            spans = np.array([x1 - x0, y1 - y0])
+            for axis in (0, 1):
+                if (self.partial_axes and loc.status == "ambiguous"
+                        and loc.score >= C.PARTIAL_AXIS_MIN_SCORE
+                        and spans[axis] <= C.PARTIAL_AXIS_MAX_SPAN_PX
+                        and spans[1 - axis] >= C.PARTIAL_AXIS_MIN_FREE_SPAN_PX):
+                    status = "x_only" if axis == 0 else "y_only"
+                    # Include integer sampling/zoom rounding. The unobserved axis
+                    # is an interval, NEVER a fabricated midpoint position.
+                    # Resizing the whole reference and resizing a cropped view
+                    # sample different grids (especially at fractional zoom and
+                    # odd dimensions). Reserve an extra matched-image pixel.
+                    margin = 0.5 if zoom == 1.0 else 1.5
+                    bounds += np.array([[-kx, kx], [-ky, ky]]) * margin
+                    return ViewFix(status, None, zoom, float(loc.score), float("inf"),
+                                   list(loc.reasons) + ["only one axis is constrained across all plausible matches"], bounds)
+        return ViewFix(loc.status, center, zoom, float(loc.score), float(unc), list(loc.reasons), bounds)
 
 
 # ===========================================================================
@@ -257,6 +294,7 @@ class NavResult:
     backoffs: int
     log: List[Dict[str, object]]
     estimate: Optional[np.ndarray]           #: last estimated window centre
+    partial_views: int = 0
 
     def final_error_px(self, camera: PanCamera) -> float:
         if self.estimate is None:
@@ -332,6 +370,35 @@ def _command(camera: PanCamera, vec_px: np.ndarray, px_per_cm: np.ndarray) -> Tu
     return float(cmd[0]), float(cmd[1])
 
 
+def _partial_command(fix: ViewFix, anchor, detection: PortDetection, step_px: float):
+    """Hold the measured axis; probe along the unobserved one toward a ridge end.
+
+    ``anchor`` is a coordinate measured in an earlier image, never an integrated
+    command. Bounds come from this image alone; no motion prior narrows them.
+    """
+    axis = fix.observed_axis
+    if axis is None or fix.axis_bounds is None:
+        raise ValueError("partial control needs a single-axis fix and image bounds")
+    measured = fix.coordinate(axis)
+    if anchor is None or anchor[0] != axis:
+        anchor = (axis, measured)
+    free = 1 - axis
+    lo, hi = fix.axis_bounds[free]
+    target = detection.marker_center[free]
+    direction = -1.0 if abs(target - lo) <= abs(target - hi) else 1.0
+    vec = np.zeros(2)
+    vec[free] = direction * step_px
+    vec[axis] = np.clip(anchor[1] - measured, -step_px, step_px)
+    vec *= min(1.0, step_px / np.linalg.norm(vec))
+    return vec, anchor
+
+
+def _fix_log(fix):
+    return {"est_x": fix.coordinate(0), "est_y": fix.coordinate(1),
+            "x_range": None if fix.axis_bounds is None else tuple(fix.axis_bounds[0]),
+            "y_range": None if fix.axis_bounds is None else tuple(fix.axis_bounds[1])}
+
+
 def navigate_with_zoom(camera: PanCamera, localizer: Localizer, detection: PortDetection,
                        ref_shape, step_px: float = C.CLOSED_LOOP_STEP_PX,
                        zoom_levels: Sequence[float] = C.CLOSED_LOOP_ZOOM_LEVELS,
@@ -362,19 +429,24 @@ def navigate_with_zoom(camera: PanCamera, localizer: Localizer, detection: PortD
     log: List[Dict[str, object]] = []
     estimate: Optional[np.ndarray] = None
     confirmation_at_move = -1
+    partial_views, partial_anchor = 0, None
 
     def record(event, fix, command=None):
         log.append({"capture": len(log), "moves": moves, "zoom": levels[level],
                     "status": fix.status, "event": event,
-                    "est_x": None if fix.center is None else round(float(fix.center[0]), 2),
-                    "est_y": None if fix.center is None else round(float(fix.center[1]), 2),
+                    **_fix_log(fix),
                     "command_cm": command})
 
     while moves <= max_moves:
         fix = localizer.locate(camera.capture(), levels[level])
         if fix.status != "ok":
-            lost += 1
+            if fix.observed_axis is None:
+                lost += 1
+                partial_anchor = None
+            else:
+                partial_views += 1
             zoomed_out = False
+            zoom_unavailable = False
             if level < len(levels) - 1:
                 try:
                     camera.set_zoom(levels[level + 1])
@@ -382,7 +454,7 @@ def navigate_with_zoom(camera: PanCamera, localizer: Localizer, detection: PortD
                 except ValueError:
                     # The wider view would leave the scene here: treat the
                     # zoom level as unavailable and explore instead.
-                    record("zoom unavailable", fix)
+                    zoom_unavailable = True
             if zoomed_out:
                 record("zoom out", fix)
                 level += 1
@@ -391,16 +463,23 @@ def navigate_with_zoom(camera: PanCamera, localizer: Localizer, detection: PortD
             if moves >= max_moves:
                 record("give up", fix)
                 break
-            command = _command(camera, next(spiral), ppc)
-            record("explore", fix, command)
+            if fix.observed_axis is not None:
+                vec, partial_anchor = _partial_command(fix, partial_anchor, detection, step_px)
+                command = _command(camera, vec, ppc)
+                record("partial-axis probe", fix, command)
+            else:
+                command = _command(camera, next(spiral), ppc)
+                record("explore", fix, command)
+            log[-1]["zoom_unavailable"] = zoom_unavailable
             moves += 1
             continue
 
         estimate = fix.center
+        partial_anchor = None
         if _visible(estimate, w, h, detection):
             if level == 0:
                 record("arrived", fix)
-                return NavResult("visible", moves, zoom_changes, lost, 0, log, estimate)
+                return NavResult("visible", moves, zoom_changes, lost, 0, log, estimate, partial_views)
             if confirmation_at_move != moves:
                 record("zoom in to confirm", fix)
                 confirmation_at_move = moves
@@ -424,7 +503,7 @@ def navigate_with_zoom(camera: PanCamera, localizer: Localizer, detection: PortD
         command = _command(camera, step, ppc)
         record("move", fix, command)
         moves += 1
-    return NavResult("exhausted", moves, zoom_changes, lost, 0, log, estimate)
+    return NavResult("exhausted", moves, zoom_changes, lost, 0, log, estimate, partial_views)
 
 
 class LocalizabilityMap:
@@ -447,6 +526,8 @@ class LocalizabilityMap:
         self.xs = np.arange(0, W - self.w + 1, self.stride)
         self.ys = np.arange(0, H - self.h + 1, self.stride)
         self.ok = np.zeros((len(self.ys), len(self.xs)), bool)
+        self.y_only = np.zeros_like(self.ok)
+        self.x_only = np.zeros_like(self.ok)
         self.goal = np.zeros_like(self.ok)
         for j, y in enumerate(self.ys):
             for i, x in enumerate(self.xs):
@@ -454,6 +535,12 @@ class LocalizabilityMap:
                 fix = localizer.locate(crop, 1.0)
                 self.ok[j, i] = (fix.status == "ok" and fix.center is not None
                                 and np.linalg.norm(fix.center - [x + self.w / 2, y + self.h / 2]) <= 1.0)
+                if fix.observed_axis is not None:
+                    axis = fix.observed_axis
+                    actual = (x + self.w / 2, y + self.h / 2)[axis]
+                    lo, hi = fix.axis_bounds[axis]
+                    if lo <= actual <= hi:
+                        (self.x_only if axis == 0 else self.y_only)[j, i] = True
                 self.goal[j, i] = nav.marker_visible((int(x), int(y), self.w, self.h), detection, "auto")
         padded = np.pad(self.ok, 1, constant_values=False)
         neighbours = np.ones_like(self.ok)
@@ -470,6 +557,14 @@ class LocalizabilityMap:
     @property
     def fraction_ok(self) -> float:
         return float(self.ok.mean())
+
+    @property
+    def partial(self) -> np.ndarray:
+        return self.x_only | self.y_only
+
+    @property
+    def fraction_partial(self) -> float:
+        return float(self.partial.mean())
 
     def cell_of(self, center: np.ndarray) -> Tuple[int, int]:
         x = center[0] - self.w / 2.0
@@ -494,7 +589,8 @@ class LocalizabilityMap:
         rows, cols = self.ok.shape
         seeing = self.ok & ~self.blocked
         penalty = np.where(seeing, C.LOCALIZABILITY_CLEARANCE_WEIGHT / np.maximum(self.clearance, 0.5),
-                           C.LOCALIZABILITY_BLIND_STEP_COST)
+                           np.where(self.partial & ~self.blocked, C.LOCALIZABILITY_PARTIAL_STEP_COST,
+                                    C.LOCALIZABILITY_BLIND_STEP_COST))
         best = {start: 0.0}
         prev = {start: None}
         heap = [(0.0, start)]
@@ -549,12 +645,12 @@ def navigate_without_zoom(camera: PanCamera, localizer: Localizer, lmap: Localiz
     expected_blind = False                     # did the plan say the next view would be unlocalisable?
     last_move: Optional[np.ndarray] = None
     target_cell: Optional[Tuple[int, int]] = None
+    partial_views, partial_anchor = 0, None
 
     def record(event, fix, command=None):
         log.append({"capture": len(log), "moves": moves, "zoom": 1.0, "status": fix.status,
                     "event": event,
-                    "est_x": None if fix.center is None else round(float(fix.center[0]), 2),
-                    "est_y": None if fix.center is None else round(float(fix.center[1]), 2),
+                    **_fix_log(fix),
                     "command_cm": command})
 
     def step_towards(position):
@@ -581,10 +677,11 @@ def navigate_without_zoom(camera: PanCamera, localizer: Localizer, lmap: Localiz
     while moves <= max_moves:
         fix = localizer.locate(camera.capture(), 1.0)
         if fix.status == "ok":
+            partial_anchor = None
             estimate, probe_step, blind = fix.center, None, 0
             if _visible(estimate, w, h, detection):
                 record("arrived", fix)
-                return NavResult("visible", moves, 0, lost, backoffs, log, estimate)
+                return NavResult("visible", moves, 0, lost, backoffs, log, estimate, partial_views)
             if moves >= max_moves:
                 record("give up", fix)
                 break
@@ -596,6 +693,19 @@ def navigate_without_zoom(camera: PanCamera, localizer: Localizer, lmap: Localiz
             moves += 1
             continue
 
+        if fix.observed_axis is not None:
+            partial_views += 1
+            if moves >= max_moves:
+                record("give up", fix)
+                break
+            vec, partial_anchor = _partial_command(fix, partial_anchor, detection, float(lmap.stride))
+            command = _command(camera, vec, ppc)
+            record("partial-axis probe", fix, command)
+            last_move, probe_step = None, None
+            moves += 1
+            continue
+
+        partial_anchor = None
         lost += 1
         if moves >= max_moves:
             record("give up", fix)
@@ -621,7 +731,7 @@ def navigate_without_zoom(camera: PanCamera, localizer: Localizer, lmap: Localiz
             record("explore", fix, command)
             last_move, probe_step = None, None
         moves += 1
-    return NavResult("exhausted", moves, 0, lost, backoffs, log, estimate)
+    return NavResult("exhausted", moves, 0, lost, backoffs, log, estimate, partial_views)
 
 
 def navigate_trusting_motion(camera: PanCamera, localizer: Localizer, detection: PortDetection,
@@ -712,6 +822,13 @@ class OrbitCamera:
     def true_pointing_error_deg(self) -> float:
         to_centre = -self._C / np.linalg.norm(self._C)
         return float(np.degrees(np.arccos(np.clip(self._R[2] @ to_centre, -1.0, 1.0))))
+
+    @property
+    def true_orientation_error_deg(self) -> float:
+        """Evaluation only: full rotation error relative to the frontal pose."""
+        front_R = cam.camera_pose_for_angle(0.0)["R"]
+        cosine = (np.trace(self._R @ front_R.T) - 1.0) / 2.0
+        return float(np.degrees(np.arccos(np.clip(cosine, -1.0, 1.0))))
 
     # -- the interface the controller uses --
     def capture(self) -> np.ndarray:

@@ -65,6 +65,7 @@ set `AULECV_ASSIGNMENT_PDF` to its path.
 | `src/aulecv/` | Shared implementation |
 | `tests/` | Regression tests |
 | `tools/verify_followup.py` | Independent held-out navigation and pose experiments |
+| `tools/verify_partial_axes.py` | Partial-axis coverage checks and matched ablation |
 | `outputs/` | Rendered images, animations and numerical results |
 
 ## Approach
@@ -110,7 +111,7 @@ The executed notebooks contain the experiments, derivations and full result tabl
 - Return trajectory: maximum distance deviation from 100 cm was 1.4e-14 cm.
 - PnP on rendered frames: maximum distance error 0.1118 cm; the 0.5-degree angle
   target was met on 8 of 10 frames. The two misses occurred near the frontal view.
-- Test suite: 226 tests passed (188 original, 38 follow-up cases).
+- Test suite: 242 tests passed (188 original, 54 follow-up cases).
 
 Main visual outputs are `outputs/side_view_22_5.png`,
 `outputs/side_view_22_5_image_faithful.png` and `outputs/camera_return.gif`.
@@ -137,13 +138,31 @@ arrival from a native-zoom fix. If a wider view would leave the scene, that zoom
 level is treated as unavailable there and the camera explores instead.
 
 **Part B, subtask B (no zoom).** A localisability map is computed once: for every
-grid position, can a view there be located? The route is the cheapest path over
-that map. It prefers views far from unlocatable ones, and only crosses unlocatable
-views where separate areas must be joined. After every move the view is
-re-localised and the route re-planned. Across gaps it repeats bounded probes toward
-an informative region, without updating position from commanded movement. If a
+grid position, is the view fully localisable, partially localisable, or blind?
+The route is the cheapest path over that map. Full fixes are cheapest, partial
+fixes have an intermediate cost, and blind cells cost the most. After every move
+the view is re-localised. Full fixes re-plan the route. Partial fixes correct the
+observed axis while probing along the unknown one. Across fully blind gaps it
+uses bounded search, without updating position from commanded movement. If a
 promised view turns out unplaceable, a reverse move is attempted and that planned
 cell is penalised. Reversing is not assumed to restore the old position.
+
+**Partial-axis localisation.** The matcher keeps all plausible competing positions,
+not just the connected ridge containing the best peak. A horizontal ridge with a
+strong score and a narrow y spread returns `y_only`: a measured y plus an x interval,
+but no full centre. A vertical ridge returns `x_only`. If identical lines give
+different heights, y remains ambiguous. Low-score and featureless views are not
+promoted to partial fixes. Intervals include raster rounding and a zoom-resampling
+margin, with regression checks at fractional zoom and odd image sizes, and are converted
+back to reference pixels at the current zoom.
+
+At the first partial frame, its observed coordinate becomes a fixed image-measured
+anchor. Subsequent frames correct drift relative to that anchor while probing
+toward an end of the ridge. Commands never update the anchor, the free-axis interval
+or a guessed position. Full image-based localisation is still required for arrival.
+The movement budget also bounds partial probing; it may exhaust if no informative
+view can be reached. Zoom takes priority where available, with partial feedback as
+a fallback. `Localizer(..., partial_axes=False)` retains the all-or-nothing baseline.
 
 **Diagonal moves.** Each command is the straight-line vector from the estimated
 position to the goal, so x and y move together. `axis_first=True` moves along the
@@ -159,12 +178,33 @@ is corrected on the next one.
 | Trust the movement | 22% | 31 | 149 px |
 | Re-localise only | 100% | 0 | 0.57 px |
 | A: with zoom | 100% | 0 | 0.57 px |
-| B: no zoom, planned route | 100% | 0 | 0.62 px |
+| B: no zoom, planned route | 100% | 0 | 0.66 px |
 
 With a smaller 120 x 100 view (only 45% of positions locatable), every
 re-localising method still reached the marker in 30 of 30 runs. Re-localising alone
-needed 355 views it could not place, zoom needed 45, and the planned route needed 223
-(mostly planned crossings) with 2 undos. Zoom used the fewest moves (median 22).
+needed 355 fully blind views. Zoom recorded 26 blind and 19 partial views; the
+planned route recorded 121 blind and 320 partial views, with 7 reverse attempts.
+Zoom used the fewest moves (median 22; planned no-zoom route 30). Partial views are
+reported separately: they give one coordinate, not a full position.
+
+**Matched partial-axis comparison.** `python tools/verify_partial_axes.py` compares
+the old all-or-nothing map/controller with the partial-aware version, using the same
+24 initially ambiguous starts and hidden motion errors. Both reached the marker in
+24/24 runs with no false arrivals. Fully blind observations fell from 113 to 40.
+Across 167 partial fixes on a reference grid, both coordinate ranges contained the
+true centre every time; worst observed-axis error was 0.5 px. During navigation,
+worst measured-axis error was 0.783 px. These are simulated checks, not calibrated
+probability guarantees.
+
+| Initially partial views | Previous median moves | Partial-axis median moves |
+|---|---|---|
+| 200 x 170 (12 runs) | 19 | 18 |
+| 120 x 100 (12 runs) | 17.5 | 25.5 |
+
+Retaining information does not always make the route shorter: holding the measured
+axis can cost extra probing steps. The live example in notebook 05 shows y tracking
+with a 2-pixel vertical bias per move. Results and coverage checks are in
+`outputs/verification/partial_axis_*.csv`.
 
 **Part D.** The pose is estimated from each image: four-corner PnP for a first guess,
 then dense alignment of the whole image to the reference (ECC). That gives the
@@ -192,8 +232,9 @@ is always observed. Controller logs contain estimates only; simulator truth is
 joined afterwards by the evaluator using the same captured frame. Tests run both
 controllers through interfaces that expose no simulator state.
 
-**Precision limit.** The loop cannot stop closer to the front than its own moves
-allow. The runs above use 0.05 cm and 0.05 degrees of random error per move per axis.
+**Precision and iteration budget.** Motion noise makes tight convergence less
+likely within a finite budget; it is not a hard mathematical accuracy floor.
+The runs above use 0.05 cm and 0.05 degrees of random error per move per axis.
 `tools/part_d_noise_sweep.py` varies that error, 6 runs per setting:
 
 | Error per move | Converged, 0.1 tolerance | Converged, 0.25 tolerance |
@@ -205,15 +246,17 @@ allow. The runs above use 0.05 cm and 0.05 degrees of random error per move per 
 With 0.10 per move and a 0.1 tolerance, a single move rarely lands inside the
 tolerance, so 4 runs used all 30 iterations. They still ended near the front (worst
 0.20 cm, 0.30 degrees) and reported "not converged" rather than claiming success.
-None of the 36 runs claimed convergence falsely. The stop test is applied to
-estimates, so the true final error can sit slightly above it: with the 0.25
-tolerance the worst true position error was 0.26 cm. The tolerance should therefore be set
-above the camera's real per-move precision (about 2-3 times its per-axis error).
+The stop test uses estimated pose. One converged run exceeded its requested true
+position tolerance: 0.2553 cm against a 0.25 cm threshold. None of the 36 runs
+exceeded the separately labelled 2x evaluation envelope when reporting convergence.
+The CSV reports both checks, including full orientation and pointing; the looser
+envelope must not be confused with the requested tolerance. Tolerance selection
+needs measured actuator and estimator error, not a universal noise multiplier.
 
 ### Independent verification
 
-Run `python tools/verify_followup.py` (and `python tools/part_d_noise_sweep.py` for the
-precision limit above). Results are saved in `outputs/verification/`.
+Run `python tools/verify_followup.py`, `python tools/verify_partial_axes.py`, and
+`python tools/part_d_noise_sweep.py`. Results are saved in `outputs/verification/`.
 The held-out seed differs from the demonstration seed:
 
 - Both B methods reached the marker in all 32 additional cases each, across two
@@ -234,7 +277,8 @@ the added noise. ECC tolerates global brightness and contrast changes, but local
 shadows, reflections, occlusion and lens distortion remain unvalidated. The lens
 must be calibrated first. In Part
 B the zoom level is assumed to be read back from the lens, and moves are translations
-parallel to the target. A featureless view cannot provide a unique position;
+parallel to the target. Partial-axis intervals are threshold-based envelopes,
+not confidence intervals. A featureless view cannot provide a unique position;
 bounded search may exhaust its budget. Exactly 100 cm at every instant cannot be
 guaranteed under unknown motion errors and intermittent imaging. The simulator
 tests sampled poses, not continuous orbital dynamics. Stop thresholds apply to

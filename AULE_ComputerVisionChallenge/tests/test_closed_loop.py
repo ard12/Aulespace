@@ -321,4 +321,165 @@ def test_zoom_out_blocked_by_scene_edge_does_not_crash(reference, det, ppc):
     c = cl.PanCamera(reference, (100.0, 85.0), VIEW, ppc, max_zoom=3.0)
     r = cl.navigate_with_zoom(c, Lost(reference, VIEW), det, reference.shape, max_moves=5)
     assert r.status == "exhausted" and r.moves == 5
-    assert any(e["event"] == "zoom unavailable" for e in r.log)
+    assert any(e.get("zoom_unavailable") for e in r.log)
+    assert len(r.log) == len(c.observations)
+    assert [e["capture"] for e in r.log] == list(range(len(c.observations)))
+
+
+@pytest.mark.parametrize("vertical", [False, True])
+def test_partial_axis_uses_the_entire_score_ridge(vertical):
+    ref = np.full((120, 200), 220, np.uint8)
+    ref[45:49, :] = 20
+    crop = ref[30:65, 55:95].copy()
+    if vertical:
+        ref, crop = ref.T.copy(), crop.T.copy()
+    fix = cl.Localizer(ref, (crop.shape[1], crop.shape[0])).locate(crop)
+    axis = 0 if vertical else 1
+    assert fix.status == ("x_only" if vertical else "y_only")
+    assert fix.center is None and fix.coordinate(1 - axis) is None
+    assert abs(fix.coordinate(axis) - 47.5) <= 2
+    assert fix.axis_bounds[axis, 0] <= 47.5 <= fix.axis_bounds[axis, 1]
+    assert np.diff(fix.axis_bounds[1 - axis])[0] > 100
+
+
+def test_two_identical_lines_do_not_give_a_false_y_fix():
+    ref = np.full((140, 200), 220, np.uint8)
+    ref[35:39, :] = 20
+    ref[95:99, :] = 20
+    crop = ref[25:50, 55:95].copy()
+    fix = cl.Localizer(ref, (40, 25)).locate(crop)
+    assert fix.status == "ambiguous" and fix.observed_axis is None
+    assert fix.coordinate(0) is None and fix.coordinate(1) is None
+    assert fix.axis_bounds[1, 1] - fix.axis_bounds[1, 0] >= 60
+
+
+def test_blank_view_is_not_promoted_to_partial():
+    ref = np.full((100, 150), 200, np.uint8)
+    fix = cl.Localizer(ref, (40, 30)).locate(ref[20:50, 40:80])
+    assert fix.status == "featureless" and fix.observed_axis is None
+
+
+def test_weak_match_is_not_promoted_to_partial(reference, monkeypatch):
+    weak = nav.CropLocalization("ambiguous", x=188, y=380, score=0.8,
+                               candidate_bounds_px=(100, 380, 300, 381))
+    monkeypatch.setattr(cl.nav, "localize_crop", lambda *args: weak)
+    fix = cl.Localizer(reference, VIEW).locate(reference[380:550, 188:388])
+    assert fix.status == "ambiguous" and fix.observed_axis is None
+
+
+def test_candidate_bounds_handle_explicit_negative_score_threshold():
+    crop = (np.arange(400).reshape(20, 20) % 256).astype(np.uint8)
+    result = nav.localize_crop(crop, 255 - crop, min_score=-1.0)
+    assert result.candidate_bounds_px == (0, 0, 0, 0)
+
+
+def test_partial_bounds_are_in_reference_units_at_zoom():
+    ref = np.full((200, 300, 3), 220, np.uint8)
+    ref[80:84, :, :] = 20
+    c = cl.PanCamera(ref, (150, 90), (60, 40), (1, 1), pad=80, max_zoom=2)
+    c.set_zoom(2)
+    fix = cl.Localizer(ref, (60, 40), pad=80).locate(c.capture(), zoom=2)
+    assert fix.status == "y_only" and fix.center is None
+    assert abs(fix.coordinate(1) - 90) <= 2
+    assert np.all(c.true_center >= fix.axis_bounds[:, 0])
+    assert np.all(c.true_center <= fix.axis_bounds[:, 1])
+
+
+@pytest.mark.parametrize("zoom", [1.5, 2.0, 3.0])
+def test_partial_bounds_cover_fractional_zoom_and_odd_dimensions(zoom):
+    ref = np.full((199, 301, 3), 220, np.uint8)
+    ref[90:94, :, :] = 20
+    rng = np.random.default_rng(16)
+    lc = cl.Localizer(ref, (61, 41), pad=128)
+    partial_count = 0
+    for _ in range(16):
+        centre = (rng.uniform(100, 200), rng.uniform(85, 110))
+        c = cl.PanCamera(ref, centre, (61, 41), (1, 1), pad=128, max_zoom=3)
+        c.set_zoom(zoom)
+        fix = lc.locate(c.capture(), zoom)
+        if fix.observed_axis is not None:
+            partial_count += 1
+            assert np.all(c.true_center >= fix.axis_bounds[:, 0])
+            assert np.all(c.true_center <= fix.axis_bounds[:, 1])
+    assert partial_count > 0
+
+
+def test_partial_mode_can_be_disabled_for_an_ablation(reference):
+    crop = nav.extract_crop(reference, 188, 380, *VIEW)
+    old = cl.Localizer(reference, VIEW, partial_axes=False).locate(crop)
+    new = cl.Localizer(reference, VIEW).locate(crop)
+    assert old.status == "ambiguous" and new.status == "y_only"
+    assert new.center is None and abs(new.coordinate(1) - 465) <= 2
+    assert new.axis_bounds[0, 0] <= 288 <= new.axis_bounds[0, 1]
+
+
+def test_partial_command_corrects_only_the_measured_axis(det):
+    fix = cl.ViewFix("y_only", None, 1, 1, float("inf"),
+                     axis_bounds=np.array([[190., 390.], [463., 467.]]))
+    vec, anchor = cl._partial_command(fix, None, det, 10)
+    assert anchor == (1, 465) and vec[1] == 0
+    shifted = cl.ViewFix("y_only", None, 1, 1, float("inf"),
+                         axis_bounds=np.array([[190., 390.], [468., 472.]]))
+    correction, same_anchor = cl._partial_command(shifted, anchor, det, 10)
+    assert correction[1] < 0 and same_anchor == anchor
+    assert np.linalg.norm(correction) <= 10 + 1e-10
+    assert shifted.center is None  # no midpoint/command-integrated x position
+
+
+@pytest.mark.parametrize("controller", ["zoom_disabled", "map"])
+def test_partial_crossing_reacquires_without_truth_access(reference, det, ppc, controller):
+    lc = cl.Localizer(reference, VIEW)
+    c = cl.PanCamera(reference, (288, 465), VIEW, ppc,
+                     cl.MotionError(gain=(0.7, 1.2), bias_px=(0.5, 2), noise_px=0.5, seed=93))
+    if controller == "map":
+        mp = cl.LocalizabilityMap(reference, lc, det, stride=20)
+        assert mp.fraction_partial > 0 and mp.y_only.any() and mp.x_only.any()
+        r = cl.navigate_without_zoom(ImageOnlyPan(c), lc, mp, det)
+    else:
+        r = cl.navigate_with_zoom(ImageOnlyPan(c), lc, det, reference.shape, zoom_levels=(1,))
+    assert r.status == "visible" and c.true_marker_visible(det)
+    assert r.partial_views > 0
+    assert len(r.log) == len(c.observations)
+    partial = [e for e in r.log if e["status"] == "y_only"]
+    assert partial and all(e["est_x"] is None for e in partial)
+    for e, truth in zip(r.log, c.observations):
+        if e["status"] == "y_only":
+            assert e["x_range"][0] <= truth["true_x"] <= e["x_range"][1]
+            assert abs(e["est_y"] - truth["true_y"]) <= 3
+    assert any(e["command_cm"][1] < 0 for e in partial if e["command_cm"])
+    prefix_y = []
+    for e, truth in zip(r.log, c.observations):
+        if e["status"] != "y_only":
+            break
+        prefix_y.append(truth["true_y"])
+    assert len(prefix_y) >= 3
+    assert max(abs(y - prefix_y[0]) for y in prefix_y) < 5
+
+
+def test_route_prefers_partial_cells_to_fully_blind_cells():
+    mp = object.__new__(cl.LocalizabilityMap)
+    mp.ok = np.zeros((3, 5), bool)
+    mp.ok[1, [0, 4]] = True
+    mp.x_only = np.zeros_like(mp.ok)
+    mp.y_only = np.zeros_like(mp.ok)
+    mp.y_only[0, 1:4] = True
+    mp.blocked = np.zeros_like(mp.ok)
+    mp.clearance = np.ones(mp.ok.shape)
+    path = mp.route((1, 0), (1, 4))
+    assert all(mp.partial[cell] for cell in path[1:-1])
+
+
+def test_partial_fix_cannot_claim_arrival_even_at_marker(reference, det):
+    class Stuck:
+        max_zoom = 1
+        def capture(self): return None
+        def move_cm(self, x, y): pass
+        def set_zoom(self, z): pass
+    class Partial:
+        w, h = VIEW
+        def locate(self, view, zoom):
+            x, y = det.marker_center
+            return cl.ViewFix("y_only", None, 1, 1, float("inf"),
+                              axis_bounds=np.array([[x - 100, x + 100], [y, y]]))
+    r = cl.navigate_with_zoom(Stuck(), Partial(), det, reference.shape, max_moves=3)
+    assert r.status == "exhausted" and r.moves == 3 and r.estimate is None
