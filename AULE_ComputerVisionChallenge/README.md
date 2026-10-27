@@ -62,6 +62,7 @@ set `AULECV_ASSIGNMENT_PDF` to its path.
 | `notebooks/04_camera_return.ipynb` | Part D: camera trajectory, animation and pose validation |
 | `notebooks/05_closed_loop_crop_navigation.ipynb` | Follow-up: Part B without trusting the motion (with and without zoom) |
 | `notebooks/06_closed_loop_camera_return.ipynb` | Follow-up: Part D with the pose found from the image every step |
+| `AULE_ComputerVisionChallenge_Solution.ipynb` | Everything in one self-contained notebook (code embedded); runs in Colab with no setup |
 | `src/aulecv/` | Shared implementation |
 | `tests/` | Regression tests |
 | `tools/verify_followup.py` | Independent held-out navigation and pose experiments |
